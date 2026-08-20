@@ -10,9 +10,12 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
   de Supabase creados.
 - Sesión 2, Fase 2.2: 14 tablas + trigger `handle_new_user` + función
   `create_order_from_cart` + índices, vía migraciones en
-  `mercadotech/supabase/migrations/`. RLS habilitado en todas las tablas pero
-  aún SIN políticas (eso es la Fase 2.3) — hoy todo está denegado por
-  defecto salvo para `service_role`.
+  `mercadotech/supabase/migrations/`.
+- Sesión 2, Fase 2.3: políticas RLS de las 14 tablas + `is_admin()` +
+  protección de `profiles.role` + GRANTs de la Data API. Verificado con
+  pruebas funcionales reales (self-promotion bloqueada, cross-seller
+  bloqueado, catálogo público visible para `anon`, insert directo a
+  `orders`/`categories` bloqueado).
 
 ## Estructura del repositorio
 
