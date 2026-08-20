@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+mercadotech/.next/
+mercadotech/out/
+mercadotech/build/
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+mercadotech/.env
+mercadotech/.env.local
+mercadotech/.env.*.local
+
+# Supabase local
+supabase/.branches
+supabase/.temp
+mercadotech/supabase/.branches
+mercadotech/supabase/.temp
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing
+/coverage
+playwright-report/
+test-results/
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vercel
