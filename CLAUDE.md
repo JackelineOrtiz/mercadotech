@@ -7,8 +7,12 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
 
 - Sesión 1: repo inicializado.
 - Sesión 2, Fase 2.1: proyecto Next.js 15 + estructura de carpetas + clientes
-  de Supabase creados (aún sin esquema de base de datos, RLS, Storage ni
-  seed — eso empieza en la Fase 2.2).
+  de Supabase creados.
+- Sesión 2, Fase 2.2: 14 tablas + trigger `handle_new_user` + función
+  `create_order_from_cart` + índices, vía migraciones en
+  `mercadotech/supabase/migrations/`. RLS habilitado en todas las tablas pero
+  aún SIN políticas (eso es la Fase 2.3) — hoy todo está denegado por
+  defecto salvo para `service_role`.
 
 ## Estructura del repositorio
 
@@ -44,3 +48,17 @@ npx tsc --noEmit   # chequeo de tipos sin emitir archivos
 
 Antes de correr `npm run dev`, copiar `.env.example` a `.env.local` y llenar
 las credenciales de Supabase.
+
+### Supabase local (requiere Docker corriendo)
+
+```bash
+cd mercadotech
+
+supabase start      # levanta Postgres + Studio + Auth + Storage locales
+supabase db reset   # reconstruye la BD desde cero: migraciones (+ seed cuando exista)
+supabase stop        # apaga los contenedores
+```
+
+`supabase start` imprime las credenciales locales (`API_URL`, `ANON_KEY`,
+`SERVICE_ROLE_KEY`, etc.) — son las que van en `.env.local` para desarrollar
+contra la base local en vez del proyecto de Supabase en la nube.
