@@ -5,8 +5,10 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
 
 ## Estado
 
-- Sesión 1: repo inicializado (esta sesión).
-- Sesión 2 (en curso): Fase 2.1 — estructura del proyecto Next.js + Supabase.
+- Sesión 1: repo inicializado.
+- Sesión 2, Fase 2.1: proyecto Next.js 15 + estructura de carpetas + clientes
+  de Supabase creados (aún sin esquema de base de datos, RLS, Storage ni
+  seed — eso empieza en la Fase 2.2).
 
 ## Estructura del repositorio
 
@@ -27,4 +29,18 @@ Supabase inyectable) → `lib/supabase/` (clientes). La UI nunca importa
 
 ## Comandos
 
-_Se completan en la Fase 2.1 al crear el proyecto Next.js._
+Todos se corren desde `mercadotech/` (el proyecto Next.js), no desde la raíz
+del repo.
+
+```bash
+cd mercadotech
+
+npm run dev        # servidor de desarrollo (http://localhost:3000)
+npm run build      # build de producción
+npm run start      # sirve el build de producción
+npm run lint       # ESLint
+npx tsc --noEmit   # chequeo de tipos sin emitir archivos
+```
+
+Antes de correr `npm run dev`, copiar `.env.example` a `.env.local` y llenar
+las credenciales de Supabase.
