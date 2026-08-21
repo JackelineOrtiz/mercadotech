@@ -30,6 +30,14 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
   hacer login, y **recursión infinita** entre las políticas de `orders` y
   `order_items` (Fase 2.3) — se resolvió con funciones `is_order_buyer()` /
   `is_order_seller()` SECURITY DEFINER, mismo patrón que `is_admin()`.
+- Sesión 2, Fase 2.6: `supabase/tests/rls-validation.sql` — 43
+  escenarios (los 9 mínimos de la spec, partidos en sub-incisos, + 12 EXTRA
+  derivados de leer las políticas reales). Ejecutados contra el seed real:
+  0 fallas de seguridad — cada límite de RLS se sostuvo. Documenta una
+  distinción útil de Postgres: cuando `USING` ya excluye la fila, el
+  resultado es `UPDATE 0` silencioso; cuando `USING` deja pasar la fila pero
+  `WITH CHECK` rechaza el valor nuevo, Postgres lanza un error duro — ambos
+  son "bloqueado", solo cambia el mecanismo.
 
 ## Estructura del repositorio
 
