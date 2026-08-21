@@ -21,6 +21,15 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
   por carpeta propia. Verificado con subidas HTTP reales contra la Storage
   API local (no solo SQL): carpeta ajena bloqueada, rol no-seller bloqueado,
   MIME no permitido bloqueado, lectura pública sin auth funciona.
+- Sesión 2, Fase 2.5: `supabase/seed.sql` — 6 usuarios, 8 categorías, 16
+  productos, pedidos en los 5 estados, preguntas, reseñas, favoritos,
+  vistas, 10 artículos FAQ y 2 tickets. Verificado con login real (Auth API)
+  de los 6 usuarios y un checkout completo (cart → RPC → stock → orden) vía
+  REST. En el camino se corrigieron dos bugs reales encontrados al probar
+  contra la API real (no solo SQL): faltaba `auth.identities` para poder
+  hacer login, y **recursión infinita** entre las políticas de `orders` y
+  `order_items` (Fase 2.3) — se resolvió con funciones `is_order_buyer()` /
+  `is_order_seller()` SECURITY DEFINER, mismo patrón que `is_admin()`.
 
 ## Estructura del repositorio
 

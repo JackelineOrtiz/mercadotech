@@ -31,6 +31,43 @@ as $$
   );
 $$;
 
+-- Helpers: is_order_buyer() / is_order_seller()
+-- ------------------------------------------------------------
+-- orders y order_items se necesitan verificar MUTUAMENTE (orders_select
+-- mira si el usuario tiene ítems como vendedor; order_items_select mira si
+-- el usuario es el comprador del pedido). Escribir eso como un EXISTS
+-- directo contra la otra tabla causa recursión infinita: RLS se reevalúa en
+-- CADA acceso a una tabla, sin importar cuán anidado esté, así que
+-- orders -> order_items -> orders -> order_items... nunca termina
+-- (Postgres lo reporta como "infinite recursion detected in policy").
+-- SECURITY DEFINER rompe el ciclo: la consulta interna corre como dueño de
+-- la tabla y no vuelve a pasar por RLS.
+create function public.is_order_buyer(p_order_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.orders o
+    where o.id = p_order_id and o.buyer_id = (select auth.uid())
+  );
+$$;
+
+create function public.is_order_seller(p_order_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.order_items oi
+    where oi.order_id = p_order_id and oi.seller_id = (select auth.uid())
+  );
+$$;
+
 -- ============================================================
 -- PROFILES
 -- ============================================================
@@ -225,10 +262,7 @@ create policy "orders_select_buyer_seller_or_admin" on public.orders
   for select
   using (
     (select auth.uid()) = buyer_id
-    or exists (
-      select 1 from public.order_items oi
-      where oi.order_id = orders.id and oi.seller_id = (select auth.uid())
-    )
+    or public.is_order_seller(orders.id)
     or public.is_admin()
   );
 
@@ -251,18 +285,12 @@ create policy "orders_select_buyer_seller_or_admin" on public.orders
 create policy "orders_update_seller_advance_or_buyer_cancel" on public.orders
   for update
   using (
-    exists (
-      select 1 from public.order_items oi
-      where oi.order_id = orders.id and oi.seller_id = (select auth.uid())
-    )
+    public.is_order_seller(orders.id)
     or ((select auth.uid()) = buyer_id and status = 'pendiente')
     or public.is_admin()
   )
   with check (
-    exists (
-      select 1 from public.order_items oi
-      where oi.order_id = orders.id and oi.seller_id = (select auth.uid())
-    )
+    public.is_order_seller(orders.id)
     or ((select auth.uid()) = buyer_id and status = 'cancelado')
     or public.is_admin()
   );
@@ -277,10 +305,7 @@ grant select, update on public.orders to authenticated;
 create policy "order_items_select_buyer_seller_or_admin" on public.order_items
   for select
   using (
-    exists (
-      select 1 from public.orders o
-      where o.id = order_items.order_id and o.buyer_id = (select auth.uid())
-    )
+    public.is_order_buyer(order_items.order_id)
     or seller_id = (select auth.uid())
     or public.is_admin()
   );
