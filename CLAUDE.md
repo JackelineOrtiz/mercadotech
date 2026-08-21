@@ -38,6 +38,14 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
   resultado es `UPDATE 0` silencioso; cuando `USING` deja pasar la fila pero
   `WITH CHECK` rechaza el valor nuevo, Postgres lanza un error duro — ambos
   son "bloqueado", solo cambia el mecanismo.
+- Sesión 2, Fase 2.7 (cierre de sesión): [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
+  documenta lo construido en las Fases 2.1–2.6. De paso se corrigió
+  `eslint.config.mjs`: le faltaba ignorar `supabase/**`, así que estaba
+  lintiando el bundle interno que genera `supabase start` en
+  `supabase/.temp/` (200+ errores que no eran nuestros). Con eso,
+  `npm run lint` y `tsc --noEmit` vuelven a pasar limpios — criterio de
+  aceptación de cierre de la Sesión 2 (junto con `supabase db reset` limpio
+  y los 43 escenarios de la Fase 2.6 en verde).
 
 ## Estructura del repositorio
 
