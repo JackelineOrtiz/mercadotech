@@ -16,6 +16,11 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
   pruebas funcionales reales (self-promotion bloqueada, cross-seller
   bloqueado, catálogo público visible para `anon`, insert directo a
   `orders`/`categories` bloqueado).
+- Sesión 2, Fase 2.4: buckets `product-images` y `avatars` (lectura
+  pública, 5 MB máx, solo JPEG/PNG/WEBP) con políticas de escritura/borrado
+  por carpeta propia. Verificado con subidas HTTP reales contra la Storage
+  API local (no solo SQL): carpeta ajena bloqueada, rol no-seller bloqueado,
+  MIME no permitido bloqueado, lectura pública sin auth funciona.
 
 ## Estructura del repositorio
 
