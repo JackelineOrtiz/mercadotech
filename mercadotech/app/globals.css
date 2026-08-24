@@ -7,7 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* Bug heredado del scaffold de shadcn (Fase 2.1): esto era
+     auto-referencial (--font-sans: var(--font-sans)), nunca apuntó a la
+     variable real que inyecta next/font en <body> — toda la app caía al
+     serif por defecto del navegador. */
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -125,9 +129,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
+    /* font-sans va aquí, no en html: --font-geist-sans lo define next/font
+       en la clase de <body> (ver layout.tsx); en <html>, que es ancestro,
+       la variable todavía no existe y font-family cae al serif del
+       navegador. */
+    @apply bg-background text-foreground font-sans;
   }
 }
