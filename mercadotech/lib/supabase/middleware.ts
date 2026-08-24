@@ -1,6 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+// /producto NO está aquí a propósito: el detalle de producto es público
+// (RLS ya lo permite para anon); solo las ACCIONES dentro de esa pantalla
+// (preguntar, favorito, agregar al carrito) requieren sesión, y eso lo
+// resuelve cada componente mostrando el botón de login, no el middleware.
+const PROTECTED_PREFIXES = ["/carrito", "/pedidos", "/favoritos", "/vendedor"];
+
+function requiresAuth(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -28,7 +40,15 @@ export async function updateSession(request: NextRequest) {
   // No agregar lógica entre createServerClient y getUser(): cualquier
   // código en medio puede provocar un refresco de sesión inconsistente
   // (patrón oficial de @supabase/ssr).
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user && requiresAuth(request.nextUrl.pathname)) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return supabaseResponse;
 }

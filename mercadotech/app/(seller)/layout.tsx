@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,8 @@ import {
 } from "@/components/ui/sheet";
 import { SellerSidebar } from "@/components/layout/SellerSidebar";
 import { Container } from "@/components/shared/Container";
+import { LoadingState } from "@/components/shared/LoadingState";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SellerLayout({
   children,
@@ -19,10 +23,28 @@ export default function SellerLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { profile, initializing } = useAuth();
+  const canSell = profile ? profile.role === "seller" || profile.role === "admin" : false;
 
-  // PUNTO DE EXTENSIÓN (Fase 3.3): cuando useAuth exista, si
-  // profile.role no es 'seller' ni 'admin' -> toast "Necesitas una cuenta
-  // de vendedor" + redirect a "/". No se implementa aquí a propósito.
+  // El middleware (lib/supabase/middleware.ts) ya bloquea a los anónimos en
+  // /vendedor/*; esto cubre el caso más fino que el middleware no resuelve
+  // (no consulta profiles): un buyer CON sesión que no es vendedor.
+  useEffect(() => {
+    if (initializing) return;
+    if (!canSell) {
+      toast.error("Necesitas una cuenta de vendedor");
+      router.push("/");
+    }
+  }, [initializing, canSell, router]);
+
+  if (initializing || !canSell) {
+    return (
+      <Container className="py-6">
+        <LoadingState rows={4} />
+      </Container>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">
