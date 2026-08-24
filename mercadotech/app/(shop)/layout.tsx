@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/shared/Container";
 import { useAuth } from "@/hooks/useAuth";
-import type { Category } from "@/types/product";
+import { useCategories } from "@/hooks/useCategories";
 
 export default function ShopLayout({
   children,
@@ -14,10 +14,10 @@ export default function ShopLayout({
 }) {
   const router = useRouter();
   const { profile, logout } = useAuth();
+  const { categories } = useCategories();
 
-  // categories llega en la Fase 3.4 (useCategories); cartCount en la 3.6
-  // (useCart).
-  const categories: Category[] = [];
+  // cartCount llega en la Fase 3.6 (useCart). SearchBar ya navega a
+  // /buscar?q= por sí sola (Fase 3.2) — no necesita conectarse a nada aquí.
 
   async function handleLogout() {
     await logout();
