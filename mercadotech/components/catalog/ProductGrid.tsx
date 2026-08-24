@@ -6,12 +6,19 @@ import type { Product } from "@/types/product";
 export interface ProductGridProps {
   items: Product[];
   loading: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 const GRID_CLASS = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 const SKELETON_COUNT = 8;
 
-export function ProductGrid({ items, loading }: ProductGridProps) {
+export function ProductGrid({
+  items,
+  loading,
+  emptyTitle = "No encontramos productos",
+  emptyDescription = "Prueba ajustando los filtros o la búsqueda.",
+}: ProductGridProps) {
   if (loading) {
     return (
       <div className={GRID_CLASS} aria-busy="true" aria-live="polite">
@@ -24,12 +31,7 @@ export function ProductGrid({ items, loading }: ProductGridProps) {
   }
 
   if (items.length === 0) {
-    return (
-      <EmptyState
-        title="No encontramos productos"
-        description="Prueba ajustando los filtros o la búsqueda."
-      />
-    );
+    return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
 
   return (

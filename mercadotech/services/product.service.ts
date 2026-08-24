@@ -20,8 +20,10 @@ export interface ProductFilters {
 
 // Forma real de la fila que devuelve el select anidado — product_images y
 // reviews vienen como arreglos sin ordenar/agregar; mapProduct() es lo único
-// que los toca antes de que un componente los vea.
-type ProductQueryRow = Database["public"]["Tables"]["products"]["Row"] & {
+// que los toca antes de que un componente los vea. Se exporta junto con el
+// select porque favorite.service.ts (Fase 3.5) hace el mismo join anidado
+// vía favorites->products y reutiliza este mapeo en vez de duplicarlo.
+export type ProductQueryRow = Database["public"]["Tables"]["products"]["Row"] & {
   product_images: Pick<
     Database["public"]["Tables"]["product_images"]["Row"],
     "image_path" | "position"
@@ -29,9 +31,9 @@ type ProductQueryRow = Database["public"]["Tables"]["products"]["Row"] & {
   reviews: Pick<Database["public"]["Tables"]["reviews"]["Row"], "rating">[];
 };
 
-const PRODUCT_SELECT = "*, product_images(image_path, position), reviews(rating)";
+export const PRODUCT_SELECT = "*, product_images(image_path, position), reviews(rating)";
 
-function mapProduct(row: ProductQueryRow): Product {
+export function mapProduct(row: ProductQueryRow): Product {
   const { product_images, reviews, ...rest } = row;
 
   const cover = [...product_images].sort((a, b) => a.position - b.position)[0];
@@ -142,4 +144,19 @@ export async function getProductImages(
     ...image,
     image_url: getPublicUrl("product-images", image.image_path),
   }));
+}
+
+// product_views_insert_own exige authenticated + user_id = auth.uid() —
+// solo se llama cuando hay sesión (lo decide el hook, no este service).
+// Fire-and-forget: el llamador debe atrapar el error, no debe romper la
+// pantalla de producto si esto falla.
+export async function registerView(
+  productId: string,
+  userId: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error } = await supabase
+    .from("product_views")
+    .insert({ product_id: productId, user_id: userId });
+  if (error) throw error;
 }
