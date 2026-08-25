@@ -4,7 +4,8 @@
 -- supabase/migrations/ (20260819110000 y 20260819120000).
 -- Generado: 2026-08-21 — Fases 2.3–2.4 (2.3 corregida en Fase 2.5:
 -- se eliminó una recursión infinita entre orders y order_items).
--- Actualizado: 2026-08-25 — Fase 4.1 (RLS de knowledge_embeddings).
+-- Actualizado: 2026-08-25 — Fase 4.1 (RLS de knowledge_embeddings,
+-- corregida en la Fase 4.3) y Fase 4.3 (GRANTs de service_role).
 
 -- ============================================================
 -- 20260819110000_create_rls_policies.sql (Fase 2.3 — tablas)
@@ -631,12 +632,28 @@ create policy "knowledge_embeddings_select_authenticated" on public.knowledge_em
   to authenticated
   using (true);
 
--- INSERT/UPDATE/DELETE: sin política ni GRANT — deliberado, no un olvido.
--- Solo el cliente admin (service_role) escribe aquí, desde
--- embedding.service.ts inyectado en un Route Handler o en scripts/ (Fase
--- 4.2/4.3), nunca desde el navegador. service_role ya tiene BYPASSRLS y
--- privilegios de tabla desde el bootstrap del proyecto (mismo patrón que
--- create_order_from_cart, Fase 2.2: ningún GRANT explícito a service_role
--- en ninguna migración de este repo).
+-- INSERT/UPDATE/DELETE: sin política — service_role tiene BYPASSRLS, así
+-- que ninguna política de esta tabla lo restringe de todos modos. Solo el
+-- cliente admin escribe aquí, desde embedding.service.ts inyectado en un
+-- Route Handler o en scripts/ (Fase 4.2/4.3), nunca desde el navegador.
+--
+-- CORRECCIÓN (verificado al construir la Fase 4.3): BYPASSRLS es distinto
+-- de los GRANT normales de Postgres — service_role NO los tiene por
+-- defecto en este stack local (confirmado contra
+-- information_schema.role_table_grants). El comentario anterior asumía lo
+-- contrario sin probarlo; se corrige aquí porque esta migración es de esta
+-- misma sesión, no desplegada a ningún entorno real.
+grant select, insert, update, delete on public.knowledge_embeddings to service_role;
 
 grant select on public.knowledge_embeddings to authenticated;
+
+-- ============================================================
+-- 20260825140000_grant_service_role_read_for_indexing.sql (Fase 4.3)
+-- ============================================================
+-- service_role necesita GRANT SELECT explícito en products/categories/
+-- support_articles para que embedding.service.ts pueda leerlas — BYPASSRLS
+-- no sustituye el GRANT de tabla. Migración nueva, no se toca la de
+-- creación de estas tablas (Fase 2.2) ni sus políticas (Fase 2.3).
+grant select on public.products to service_role;
+grant select on public.categories to service_role;
+grant select on public.support_articles to service_role;

@@ -104,3 +104,32 @@ export async function indexSource(
     await indexSupportArticle(sourceId, supabase);
   }
 }
+
+// PGRST116 = PostgREST "0 filas" en un .single() — es lo que devuelve
+// indexProduct/indexSupportArticle cuando la fuente ya no existe (producto
+// borrado). El Route Handler de reindexado (Fase 4.3) usa esto para decidir
+// entre reintentar como error real o limpiar la ficha huérfana, sin tener
+// que conocer el código de error de Postgrest él mismo.
+export function isSourceNotFoundError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "PGRST116"
+  );
+}
+
+// Borra la(s) ficha(s) de una fuente que ya no existe — la FK ausente de
+// source_id (Fase 4.1) hace posible que quede huérfana, esto la limpia.
+export async function removeEmbeddings(
+  sourceType: SourceType,
+  sourceId: string,
+  supabase: Client,
+): Promise<void> {
+  const { error } = await supabase
+    .from("knowledge_embeddings")
+    .delete()
+    .eq("source_type", sourceType)
+    .eq("source_id", sourceId);
+  if (error) throw error;
+}

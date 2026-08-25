@@ -12,12 +12,26 @@ create policy "knowledge_embeddings_select_authenticated" on public.knowledge_em
   to authenticated
   using (true);
 
--- INSERT/UPDATE/DELETE: sin política ni GRANT — deliberado, no un olvido.
--- Solo el cliente admin (service_role) escribe aquí, desde
--- embedding.service.ts inyectado en un Route Handler o en scripts/ (Fase
--- 4.2/4.3), nunca desde el navegador. service_role ya tiene BYPASSRLS y
--- privilegios de tabla desde el bootstrap del proyecto (mismo patrón que
--- create_order_from_cart, Fase 2.2: ningún GRANT explícito a service_role
--- en ninguna migración de este repo).
+-- INSERT/UPDATE/DELETE: sin política — service_role tiene BYPASSRLS, así
+-- que ninguna política de esta tabla lo restringe de todos modos (RLS no
+-- aplica a un rol con ese atributo). Solo el cliente admin escribe aquí,
+-- desde embedding.service.ts inyectado en un Route Handler o en scripts/
+-- (Fase 4.2/4.3), nunca desde el navegador.
+--
+-- CORRECCIÓN (verificado al construir la Fase 4.3, no al escribir esto):
+-- BYPASSRLS es un mecanismo DISTINTO de los GRANT normales de Postgres —
+-- salta la evaluación de políticas, pero un rol sigue necesitando el
+-- privilegio de tabla (SELECT/INSERT/...) para poder tocarla. service_role
+-- NO lo tiene por defecto en este stack local (confirmado contra
+-- information_schema.role_table_grants: solo REFERENCES/TRIGGER/TRUNCATE,
+-- heredados de un default distinto a los de datos). El comentario anterior
+-- de este archivo asumía lo contrario sin haberlo probado — el primer
+-- intento real de embedding.service.ts contra el endpoint de reindexado
+-- (Fase 4.3) falló con "permission denied for table products" cuando el
+-- código en sí era correcto. Se corrige aquí en vez de con una migración
+-- aparte porque este archivo es de esta misma sesión y no se desplegó a
+-- ningún entorno real (mismo criterio que la Fase 2.5 al corregir RLS de
+-- la Fase 2.3).
+grant select, insert, update, delete on public.knowledge_embeddings to service_role;
 
 grant select on public.knowledge_embeddings to authenticated;

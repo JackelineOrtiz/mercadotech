@@ -6,6 +6,7 @@ import * as sellerService from "@/services/seller.service";
 import * as storageService from "@/services/storage.service";
 import type { ImageOrderItem } from "@/services/storage.service";
 import { getProductById, getProductImages } from "@/services/product.service";
+import { triggerReindex } from "@/services/indexing-trigger.service";
 import { validateProduct, type FieldErrors } from "@/lib/validators/product";
 import {
   MAX_IMAGES_PER_PRODUCT,
@@ -304,10 +305,14 @@ export function useProductForm(sellerId?: string, productId?: string) {
           items.push({ id: img.id, product_id: newProductId, image_path: path, position: i });
         }
         await storageService.saveImageOrder(items);
+        // Fire-and-forget (Fase 4.3): la ficha de búsqueda semántica se
+        // arma sola, sin retrasar ni poder romper la publicación.
+        triggerReindex("producto", newProductId);
         return newProductId;
       }
 
       await sellerService.updateProduct(productId!, input);
+      triggerReindex("producto", productId!);
       return productId!;
     } finally {
       setSubmitting(false);
