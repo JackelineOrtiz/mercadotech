@@ -6,25 +6,13 @@ import {
   isSourceNotFoundError,
   removeEmbeddings,
 } from "@/services/embedding.service";
-import { apiError } from "@/lib/api-response";
+import { apiError, toErrorMessage } from "@/lib/api-response";
 
 const SOURCE_TYPES = ["producto", "articulo_soporte"] as const;
 type SourceType = (typeof SOURCE_TYPES)[number];
 
 function isSourceType(value: unknown): value is SourceType {
   return typeof value === "string" && (SOURCE_TYPES as readonly string[]).includes(value);
-}
-
-// Los errores de Postgrest (ej. product_error de embedding.service) son
-// objetos planos {message, details, hint, code}, NO instancias de Error —
-// String(err) sobre ellos da el inútil "[object Object]". Se extrae
-// .message explícitamente antes de caer a String().
-function toErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err) {
-    return String((err as { message: unknown }).message);
-  }
-  return String(err);
 }
 
 // POST /api/v1/reindex — server-only: es el único lugar (junto con

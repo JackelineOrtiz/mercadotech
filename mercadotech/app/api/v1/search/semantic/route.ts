@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { searchProducts } from "@/services/vector-search.service";
-import { apiError } from "@/lib/api-response";
+import { apiError, toErrorMessage } from "@/lib/api-response";
 import { CHAT_QUERY_MAX_CHARS } from "@/lib/constants/ai";
-
-function toErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err) {
-    return String((err as { message: unknown }).message);
-  }
-  return String(err);
-}
 
 // POST /api/v1/search/semantic — requiere sesión (decisión 1: la IA nunca
 // se expone a anon, protege también la cuota gratuita de Hugging Face). El
