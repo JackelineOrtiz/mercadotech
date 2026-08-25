@@ -5,6 +5,7 @@ import {
   buildSupportArticleEmbeddingText,
   generateEmbedding,
 } from "@/lib/ai/embeddings";
+import { getProductById } from "@/services/product.service";
 
 type Client = SupabaseClient<Database>;
 type SourceType = "producto" | "articulo_soporte";
@@ -22,13 +23,16 @@ function vectorToPgvector(vector: number[]): string {
   return `[${vector.join(",")}]`;
 }
 
+// Reutiliza getProductById (product.service, Fase 3.4) en vez de un select
+// propio: además de ahorrar duplicar el mapeo numeric->number, así la
+// ficha guarda el mismo image_url YA RESUELTO que ve el catálogo — sin
+// esto, las fuentes citadas en el chat (Fase 4.7) no tendrían de dónde
+// sacar una imagen para su mini-card. getProductById no filtra por
+// is_active, así que reindexar un producto recién desactivado sigue
+// funcionando (su ficha se actualiza igual, decisión de la Fase 4.1: la
+// ficha no se borra al desactivar, solo al eliminar).
 export async function indexProduct(productId: string, supabase: Client): Promise<void> {
-  const { data: product, error: productError } = await supabase
-    .from("products")
-    .select("id, title, description, brand, condition, price, category_id")
-    .eq("id", productId)
-    .single();
-  if (productError) throw productError;
+  const product = await getProductById(productId, supabase);
 
   const { data: category, error: categoryError } = await supabase
     .from("categories")
@@ -55,7 +59,12 @@ export async function indexProduct(productId: string, supabase: Client): Promise
       chunk_index: 0,
       content,
       embedding: vectorToPgvector(embedding),
-      metadata: { title: product.title, price: Number(product.price), category: category.name },
+      metadata: {
+        title: product.title,
+        price: product.price,
+        category: category.name,
+        image_url: product.image_url,
+      },
     },
     { onConflict: "source_type,source_id,chunk_index" },
   );

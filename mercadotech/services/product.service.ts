@@ -33,7 +33,15 @@ export type ProductQueryRow = Database["public"]["Tables"]["products"]["Row"] & 
 
 export const PRODUCT_SELECT = "*, product_images(image_path, position), reviews(rating)";
 
-export function mapProduct(row: ProductQueryRow): Product {
+// supabase opcional (default = cliente de navegador): SIEMPRE pasarlo
+// explícito cuando el caller ya tiene uno inyectado (ej. el cliente admin
+// en embedding.service.ts) — omitirlo hace que getPublicUrl construya su
+// propio cliente de navegador con el default, y ese default explota fuera
+// del navegador ("Node.js detected but native WebSocket not found",
+// encontrado real reindexando desde scripts/index-all.ts en la Fase 4.7).
+// getPublicUrl no hace red (solo arma un string), pero igual necesita una
+// instancia de cliente para llamarlo.
+export function mapProduct(row: ProductQueryRow, supabase?: Client): Product {
   const { product_images, reviews, ...rest } = row;
 
   const cover = [...product_images].sort((a, b) => a.position - b.position)[0];
@@ -45,7 +53,7 @@ export function mapProduct(row: ProductQueryRow): Product {
     ...rest,
     price: Number(rest.price),
     condition: rest.condition as ProductCondition,
-    image_url: cover ? getPublicUrl("product-images", cover.image_path) : null,
+    image_url: cover ? getPublicUrl("product-images", cover.image_path, supabase) : null,
     average_rating: averageRating,
     review_count: ratings.length,
   };
@@ -112,7 +120,7 @@ export async function listActiveProducts(
     .returns<ProductQueryRow[]>();
   if (error) throw error;
 
-  return { items: data.map(mapProduct), total: count ?? 0 };
+  return { items: data.map((row) => mapProduct(row, supabase)), total: count ?? 0 };
 }
 
 export async function getProductById(
@@ -126,7 +134,7 @@ export async function getProductById(
     .single()
     .returns<ProductQueryRow>();
   if (error) throw error;
-  return mapProduct(data);
+  return mapProduct(data, supabase);
 }
 
 export async function getProductImages(
@@ -142,7 +150,7 @@ export async function getProductImages(
 
   return data.map((image) => ({
     ...image,
-    image_url: getPublicUrl("product-images", image.image_path),
+    image_url: getPublicUrl("product-images", image.image_path, supabase),
   }));
 }
 

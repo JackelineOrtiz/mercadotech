@@ -657,3 +657,8 @@ grant select on public.knowledge_embeddings to authenticated;
 grant select on public.products to service_role;
 grant select on public.categories to service_role;
 grant select on public.support_articles to service_role;
+
+-- AMPLIADO en la Fase 4.7: getProductById (reutilizado por indexProduct)
+-- hace join contra product_images y reviews — mismo GRANT faltante.
+grant select on public.product_images to service_role;
+grant select on public.reviews to service_role;

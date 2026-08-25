@@ -14,3 +14,13 @@
 grant select on public.products to service_role;
 grant select on public.categories to service_role;
 grant select on public.support_articles to service_role;
+
+-- AMPLIADO en la Fase 4.7: indexProduct pasó a reutilizar getProductById
+-- (product.service.ts, Fase 3.4) para obtener también image_url resuelta
+-- (la necesita la mini-card de fuentes citadas del chat) — ese select
+-- anidado (PRODUCT_SELECT) hace join contra product_images y reviews, así
+-- que service_role necesita el mismo GRANT ahí también. Mismo error
+-- ("permission denied for table product_images"), mismo motivo, mismo
+-- archivo — no una migración aparte por cada tabla nueva que se sume.
+grant select on public.product_images to service_role;
+grant select on public.reviews to service_role;

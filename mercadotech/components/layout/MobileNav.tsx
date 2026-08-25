@@ -51,6 +51,16 @@ export function MobileNav({ categories, user, onLogout }: MobileNavProps) {
               render={<Link href="/pedidos" className={LINK_CLASS}>Mis pedidos</Link>}
             />
           ) : null}
+          {user ? (
+            <SheetClose
+              render={<Link href="/asistente" className={LINK_CLASS}>Asistente</Link>}
+            />
+          ) : null}
+          {user ? (
+            <SheetClose
+              render={<Link href="/soporte" className={LINK_CLASS}>Soporte</Link>}
+            />
+          ) : null}
           {canSell ? (
             <SheetClose
               render={

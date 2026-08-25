@@ -22,7 +22,7 @@ export async function listMyProducts(
     .order("created_at", { ascending: false })
     .returns<ProductQueryRow[]>();
   if (error) throw error;
-  return data.map(mapProduct);
+  return data.map((row) => mapProduct(row, supabase));
 }
 
 export interface ProductInput {

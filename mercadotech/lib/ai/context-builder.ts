@@ -35,6 +35,13 @@ export interface ContextSource {
   source_id: string;
   title: string;
   similarity: number;
+  // price/image_url solo vienen en metadata de fichas "producto"
+  // (embedding.service.ts); category viene en ambas. Todas opcionales:
+  // este archivo no sabe (ni debe saber) la forma exacta de cada fuente,
+  // solo lee lo que encuentra en el jsonb sin romperse si falta.
+  price?: number;
+  image_url?: string | null;
+  category?: string;
 }
 
 export interface ContextBuilderResult {
@@ -46,8 +53,22 @@ export interface ContextBuilderResult {
   };
 }
 
-function extractTitle(metadata: Record<string, unknown>): string {
-  return typeof metadata.title === "string" ? metadata.title : "";
+function extractString(metadata: Record<string, unknown>, key: string): string | undefined {
+  return typeof metadata[key] === "string" ? (metadata[key] as string) : undefined;
+}
+
+function extractNumber(metadata: Record<string, unknown>, key: string): number | undefined {
+  return typeof metadata[key] === "number" ? (metadata[key] as number) : undefined;
+}
+
+// image_url legítimamente puede ser null (producto sin imágenes, ver
+// types/product.ts) — se distingue de "no vino en metadata" (undefined,
+// fichas de artículo_soporte, que no tienen imagen).
+function extractImageUrl(metadata: Record<string, unknown>): string | null | undefined {
+  const value = metadata.image_url;
+  if (typeof value === "string") return value;
+  if (value === null) return null;
+  return undefined;
 }
 
 // buildContext: función PURA — cero red, cero Supabase, cero React. Todo
@@ -114,8 +135,11 @@ export function buildContext(
     index: i + 1,
     source_type: candidate.source_type,
     source_id: candidate.source_id,
-    title: extractTitle(candidate.metadata),
+    title: extractString(candidate.metadata, "title") ?? "",
     similarity: candidate.similarity,
+    price: extractNumber(candidate.metadata, "price"),
+    image_url: extractImageUrl(candidate.metadata),
+    category: extractString(candidate.metadata, "category"),
   }));
 
   const userMessage = buildRagUserMessage(

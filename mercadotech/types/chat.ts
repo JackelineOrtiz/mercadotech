@@ -2,13 +2,18 @@ export type ChatMode = "compras" | "soporte";
 
 // Misma forma que ContextSource de lib/ai/context-builder.ts — se declara
 // aparte porque types/ no debe depender de lib/ai/ (los tipos de dominio
-// son la fuente de verdad de la forma, no al revés).
+// son la fuente de verdad de la forma, no al revés). price/image_url solo
+// vienen en fuentes "producto"; category en ambas — components/chat/
+// (Fase 4.7) las usa para armar la mini-card de cada tipo de fuente.
 export interface ChatSource {
   index: number;
   source_type: "producto" | "articulo_soporte";
   source_id: string;
   title: string;
   similarity: number;
+  price?: number;
+  image_url?: string | null;
+  category?: string;
 }
 
 // Un turno de la conversación — historial en memoria del navegador (Fase

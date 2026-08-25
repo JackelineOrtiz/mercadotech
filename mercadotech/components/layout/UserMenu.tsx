@@ -47,6 +47,8 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
       <DropdownMenuContent align="end">
         <DropdownMenuItem render={<Link href="/pedidos">Mis pedidos</Link>} />
         <DropdownMenuItem render={<Link href="/favoritos">Favoritos</Link>} />
+        <DropdownMenuItem render={<Link href="/asistente">Asistente</Link>} />
+        <DropdownMenuItem render={<Link href="/soporte">Soporte</Link>} />
         {canSell ? (
           <DropdownMenuItem
             render={<Link href="/vendedor/productos">Panel vendedor</Link>}

@@ -90,7 +90,7 @@ export async function searchProducts(
 
   return products
     .map((row) => {
-      const product = mapProduct(row);
+      const product = mapProduct(row, supabase);
       return { ...product, similarity: similarityBySourceId.get(product.id)! };
     })
     // El JOIN contra products no conserva el orden de match_knowledge —

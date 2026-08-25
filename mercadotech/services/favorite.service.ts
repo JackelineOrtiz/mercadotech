@@ -71,5 +71,5 @@ export async function listMine(
 
   return data
     .filter((row): row is { products: ProductQueryRow } => row.products !== null)
-    .map((row) => mapProduct(row.products));
+    .map((row) => mapProduct(row.products, supabase));
 }

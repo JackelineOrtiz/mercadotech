@@ -5,7 +5,14 @@ import { type NextRequest, NextResponse } from "next/server";
 // (RLS ya lo permite para anon); solo las ACCIONES dentro de esa pantalla
 // (preguntar, favorito, agregar al carrito) requieren sesión, y eso lo
 // resuelve cada componente mostrando el botón de login, no el middleware.
-const PROTECTED_PREFIXES = ["/carrito", "/pedidos", "/favoritos", "/vendedor"];
+const PROTECTED_PREFIXES = [
+  "/carrito",
+  "/pedidos",
+  "/favoritos",
+  "/vendedor",
+  "/asistente",
+  "/soporte",
+];
 
 function requiresAuth(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
