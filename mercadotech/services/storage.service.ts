@@ -25,3 +25,77 @@ export function getPublicUrl(
   const { data } = supabase.storage.from(bucket).getPublicUrl(normalizedPath);
   return data.publicUrl;
 }
+
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+// La extensión sale del MIME real, no del nombre de archivo: un usuario
+// puede renombrar "foto.png" a "foto.jpg", y el bucket valida el MIME, no
+// la extensión — el path debe coincidir con lo que Storage realmente
+// aceptó, o getPublicUrl no encontrará el objeto después.
+export async function uploadProductImage(
+  file: File,
+  sellerId: string,
+  productId: string,
+  n: number,
+  supabase: Client = createClient(),
+): Promise<string> {
+  const ext = EXT_BY_MIME[file.type] ?? "jpg";
+  const path = `${sellerId}/${productId}/${n}.${ext}`;
+  const { error } = await supabase.storage.from("product-images").upload(path, file, {
+    upsert: true,
+  });
+  if (error) throw error;
+  return path;
+}
+
+// Borra el objeto en Storage y su fila en product_images en el mismo
+// llamado — el vendedor nunca deja una imagen "huérfana" en un solo lado.
+// Se matchea por image_path (no por id): mismo valor que devolvió
+// uploadProductImage y que ya tiene el service en memoria, sin ida y
+// vuelta extra a la base para resolver un id.
+export async function deleteProductImage(
+  imagePath: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const normalizedPath = imagePath.startsWith("product-images/")
+    ? imagePath.slice("product-images/".length)
+    : imagePath;
+  const { error: storageError } = await supabase.storage
+    .from("product-images")
+    .remove([normalizedPath]);
+  if (storageError) throw storageError;
+
+  const { error: dbError } = await supabase
+    .from("product_images")
+    .delete()
+    .eq("image_path", imagePath);
+  if (dbError) throw dbError;
+}
+
+export interface ImageOrderItem {
+  id: string;
+  product_id: string;
+  image_path: string;
+  position: number;
+}
+
+// Upsert con filas COMPLETAS (id, product_id, image_path, position): un
+// upsert parcial (solo id+position) dejaría product_id/image_path en null
+// en una fila nueva y violaría los not null de la tabla. Sirve para tres
+// casos de la Fase 3.7 (todos con la misma forma: escribir N filas de
+// product_images de una vez): alta inicial al publicar, reorden en modo
+// edición, y alta de una imagen nueva agregada durante la edición — en los
+// tres, el id ya lo generó el llamador (crypto.randomUUID()), así que un
+// id inexistente simplemente se inserta.
+export async function saveImageOrder(
+  items: ImageOrderItem[],
+  supabase: Client = createClient(),
+): Promise<void> {
+  if (items.length === 0) return;
+  const { error } = await supabase.from("product_images").upsert(items);
+  if (error) throw error;
+}

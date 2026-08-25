@@ -15,3 +15,12 @@ export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"] & {
 export type OrderWithItems = Order & {
   items: OrderItem[];
 };
+
+// Vista del vendedor sobre un pedido multi-vendedor (seed: c…01, con ítems
+// de seller1 Y seller2): myItems/myTotal son SOLO sus ítems, nunca
+// order.total — order_items_select_buyer_seller_or_admin ya filtra las
+// filas a nivel de RLS, este tipo solo documenta la forma resultante.
+export type SellerOrder = Order & {
+  myItems: OrderItem[];
+  myTotal: number;
+};
