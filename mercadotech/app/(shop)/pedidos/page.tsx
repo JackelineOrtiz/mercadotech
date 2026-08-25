@@ -1,13 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrders } from "@/hooks/useOrders";
 import { OrderCard } from "@/components/orders/OrderCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Button } from "@/components/ui/button";
 
 export default function PedidosPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { orders, loading, error, retry } = useOrders(user?.id);
 
@@ -22,6 +25,7 @@ export default function PedidosPage() {
         <EmptyState
           title="Todavía no tienes pedidos"
           description="Cuando compres algo, aparecerá aquí."
+          action={<Button onClick={() => router.push("/")}>Explorar productos</Button>}
         />
       ) : (
         <div className="flex flex-col gap-3">

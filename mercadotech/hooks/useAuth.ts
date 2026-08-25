@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
 import * as authService from "@/services/auth.service";
 import type { RegisterInput } from "@/services/auth.service";
 import type { Profile } from "@/types/user";
@@ -29,41 +28,24 @@ export function useAuth() {
   });
 
   const loadProfile = useCallback(async () => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const session = await authService.getSession();
 
-    if (!user) {
+    if (!session) {
       setState((s) => ({ ...s, user: null, profile: null, initializing: false }));
       return;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
     setState((s) => ({
       ...s,
-      user,
-      profile: (profile as Profile) ?? null,
+      user: session.user,
+      profile: session.profile,
       initializing: false,
     }));
   }, []);
 
   useEffect(() => {
     loadProfile();
-
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadProfile();
-    });
-
-    return () => subscription.unsubscribe();
+    return authService.onAuthStateChange(() => loadProfile());
   }, [loadProfile]);
 
   const register = useCallback(async (input: RegisterInput) => {

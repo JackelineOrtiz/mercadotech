@@ -52,7 +52,11 @@ export default function SellerLayout({
         <SellerSidebar />
       </aside>
 
-      <div className="flex-1">
+      {/* min-w-0: sin esto, un hijo ancho (ProductsTable, con celdas
+          whitespace-nowrap) empuja este flex item más allá del viewport en
+          mobile — flex row deja min-width:auto por default, que ignora el
+          overflow-x-auto del propio Table y escala TODA la página. */}
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3 border-b border-border p-4 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger

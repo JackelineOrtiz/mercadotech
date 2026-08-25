@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useSellerOrders } from "@/hooks/useSellerOrders";
 import { OrdersKanban } from "@/components/seller/OrdersKanban";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
 
 export default function VendedorPedidosPage() {
   const { profile } = useAuth();
@@ -18,6 +20,9 @@ export default function VendedorPedidosPage() {
       <EmptyState
         title="Aún no tienes pedidos"
         description="Cuando alguien compre tus productos, aparecerán aquí."
+        action={
+          <Button nativeButton={false} render={<Link href="/vendedor/publicar">Publicar producto</Link>} />
+        }
       />
     );
   }

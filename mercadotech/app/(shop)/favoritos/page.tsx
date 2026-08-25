@@ -1,11 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useFavorites } from "@/hooks/useFavorites";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Button } from "@/components/ui/button";
 
 export default function FavoritosPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { items, loading, error, retry } = useFavorites(user?.id);
 
@@ -14,13 +18,16 @@ export default function FavoritosPage() {
       <h1 className="mb-4 text-2xl font-bold">Mis favoritos</h1>
       {error ? (
         <ErrorState onRetry={retry} />
-      ) : (
-        <ProductGrid
-          items={items}
-          loading={loading}
-          emptyTitle="Todavía no tienes favoritos"
-          emptyDescription="Toca el corazón en cualquier producto para guardarlo aquí."
+      ) : loading ? (
+        <ProductGrid items={items} loading={loading} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          title="Todavía no tienes favoritos"
+          description="Toca el corazón en cualquier producto para guardarlo aquí."
+          action={<Button onClick={() => router.push("/")}>Explorar productos</Button>}
         />
+      ) : (
+        <ProductGrid items={items} loading={loading} />
       )}
     </div>
   );

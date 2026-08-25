@@ -37,11 +37,15 @@ export interface SortableImageGalleryProps {
 
 function Thumbnail({
   image,
+  index,
+  total,
   isCover,
   onRemove,
   disabled,
 }: {
   image: GalleryImageValue;
+  index: number;
+  total: number;
   isCover: boolean;
   onRemove: () => void;
   disabled?: boolean;
@@ -56,12 +60,19 @@ function Thumbnail({
     transition,
   };
 
+  // El nombre accesible vive en el contenedor arrastrable (lo que un
+  // lector de pantalla anuncia al enfocarlo con Tab), no en la imagen: el
+  // <Image> de adentro es decorativo respecto a ese nombre, por eso
+  // alt="" — mismo patrón que los thumbnails de ProductGallery (3.5).
+  const label = `Imagen ${index + 1} de ${total}${isCover ? " (portada)" : ""}`;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      aria-label={label}
       className={cn(
         "relative size-24 shrink-0 touch-none overflow-hidden rounded-md border border-border",
         !disabled && "cursor-grab",
@@ -124,6 +135,8 @@ export function SortableImageGallery({
               <Thumbnail
                 key={image.id}
                 image={image}
+                index={index}
+                total={images.length}
                 isCover={index === 0}
                 onRemove={() => onRemove(image.id)}
                 disabled={disabled}

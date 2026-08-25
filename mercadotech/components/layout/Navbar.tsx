@@ -32,7 +32,11 @@ export function Navbar({ categories, cartCount, user, onLogout }: NavbarProps) {
           <CategoriesMenu categories={categories} />
         </div>
 
-        <div className="flex-1">
+        {/* < 768px: el resto de la fila (menú, logo, carrito, usuario) ya
+            son shrink-0, así que en 375px este flex-1 quedaba con ~48px
+            reales — muy poco para escribir una búsqueda. Se oculta aquí y
+            se repite abajo en su propia fila a ancho completo. */}
+        <div className="hidden flex-1 md:block">
           <SearchBar />
         </div>
 
@@ -40,6 +44,10 @@ export function Navbar({ categories, cartCount, user, onLogout }: NavbarProps) {
           <CartIndicator count={cartCount} />
           <UserMenu user={user} onLogout={onLogout} />
         </div>
+      </div>
+
+      <div className="border-t border-border px-4 pb-3 pt-2 md:hidden">
+        <SearchBar />
       </div>
     </header>
   );
