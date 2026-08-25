@@ -1,0 +1,106 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+import {
+  buildProductEmbeddingText,
+  buildSupportArticleEmbeddingText,
+  generateEmbedding,
+} from "@/lib/ai/embeddings";
+
+type Client = SupabaseClient<Database>;
+type SourceType = "producto" | "articulo_soporte";
+
+// A diferencia del resto de services (Sesión 3), sin default = createClient():
+// este service SOLO escribe en knowledge_embeddings, que no tiene política
+// de INSERT/UPDATE para authenticated (Fase 4.1) — el caller SIEMPRE debe
+// inyectar el cliente admin (Route Handler o scripts/), nunca el de
+// navegador. Que el parámetro no tenga default es intencional, no un olvido.
+
+// pgvector expone `embedding` como texto por PostgREST (types/database.ts:
+// Row.embedding es `string`) — este es el único lugar que serializa un
+// number[] al formato "[0.1,0.2,...]" que Postgres interpreta como vector.
+function vectorToPgvector(vector: number[]): string {
+  return `[${vector.join(",")}]`;
+}
+
+export async function indexProduct(productId: string, supabase: Client): Promise<void> {
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id, title, description, brand, condition, price, category_id")
+    .eq("id", productId)
+    .single();
+  if (productError) throw productError;
+
+  const { data: category, error: categoryError } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", product.category_id)
+    .single();
+  if (categoryError) throw categoryError;
+
+  const content = buildProductEmbeddingText(
+    {
+      title: product.title,
+      brand: product.brand,
+      condition: product.condition,
+      description: product.description,
+    },
+    { name: category.name },
+  );
+  const embedding = await generateEmbedding(content);
+
+  const { error } = await supabase.from("knowledge_embeddings").upsert(
+    {
+      source_type: "producto" satisfies SourceType,
+      source_id: product.id,
+      chunk_index: 0,
+      content,
+      embedding: vectorToPgvector(embedding),
+      metadata: { title: product.title, price: Number(product.price), category: category.name },
+    },
+    { onConflict: "source_type,source_id,chunk_index" },
+  );
+  if (error) throw error;
+}
+
+export async function indexSupportArticle(articleId: string, supabase: Client): Promise<void> {
+  const { data: article, error: articleError } = await supabase
+    .from("support_articles")
+    .select("id, title, content, category")
+    .eq("id", articleId)
+    .single();
+  if (articleError) throw articleError;
+
+  const content = buildSupportArticleEmbeddingText({
+    title: article.title,
+    category: article.category,
+    content: article.content,
+  });
+  const embedding = await generateEmbedding(content);
+
+  const { error } = await supabase.from("knowledge_embeddings").upsert(
+    {
+      source_type: "articulo_soporte" satisfies SourceType,
+      source_id: article.id,
+      chunk_index: 0,
+      content,
+      embedding: vectorToPgvector(embedding),
+      metadata: { title: article.title, category: article.category },
+    },
+    { onConflict: "source_type,source_id,chunk_index" },
+  );
+  if (error) throw error;
+}
+
+// Punto de entrada único para el endpoint de reindexado (Fase 4.3), que
+// recibe sourceType como string desde el body del POST.
+export async function indexSource(
+  sourceType: SourceType,
+  sourceId: string,
+  supabase: Client,
+): Promise<void> {
+  if (sourceType === "producto") {
+    await indexProduct(sourceId, supabase);
+  } else {
+    await indexSupportArticle(sourceId, supabase);
+  }
+}
