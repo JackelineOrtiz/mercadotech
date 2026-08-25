@@ -1085,3 +1085,143 @@ begin
 end;
 $$;
 
+
+-- ============================================================
+-- 20260825100000_enable_pgvector.sql
+-- ============================================================
+-- pgvector: agrega el tipo `vector` y los operadores de distancia/similitud
+-- que usan la tabla y la función de esta sesión. En `extensions`, no en
+-- `public` — mismo patrón que pgcrypto (Fase 2.1): mantiene el esquema
+-- `public` libre de objetos de extensión. `extra_search_path` en
+-- config.toml ya incluye "extensions", así que el tipo queda visible sin
+-- calificar el esquema en el resto de las migraciones.
+create extension if not exists "vector" with schema extensions;
+
+-- ============================================================
+-- 20260825100100_create_knowledge_embeddings.sql
+-- ============================================================
+-- KNOWLEDGE_EMBEDDINGS: el "fichero" del bibliotecario (Sesión 4). Una sola
+-- tabla para las dos fuentes que esta sesión indexa (products y
+-- support_articles), discriminada por source_type — más simple que dos
+-- tablas gemelas y permite buscar en ambas fuentes con una sola consulta.
+--
+-- source_id SIN foreign key: apunta a dos tablas origen distintas
+-- (products.id o support_articles.id según source_type), y Postgres no
+-- soporta una FK condicional a "una de dos tablas". Consecuencia aceptada:
+-- si se borra un producto o un artículo, su ficha queda huérfana aquí hasta
+-- que algo la limpie explícitamente — el service de indexación (Fase 4.3)
+-- borra la ficha al borrar el producto, y vector-search.service (Fase 4.4)
+-- descarta huérfanos al hidratar resultados contra la fuente real, así que
+-- un huérfano nunca llega a mostrarse, aunque exista la fila.
+--
+-- SUPUESTO (spec no lo detalla): chunk_index default 0 dejado tal cual —
+-- esta sesión indexa cada fuente como un solo chunk; la columna existe para
+-- no tener que migrar de nuevo si un futuro chunking parte un texto largo
+-- en varias fichas.
+create table public.knowledge_embeddings (
+  id uuid primary key default gen_random_uuid(),
+  source_type text not null check (source_type in ('producto', 'articulo_soporte')),
+  source_id uuid not null,
+  chunk_index integer not null default 0,
+  content text not null,
+  -- vector(384): dimensión de sentence-transformers/all-MiniLM-L6-v2
+  -- (Guía HF, lección 6, y lib/constants/ai.ts en la Fase 4.2). Cambiar de
+  -- modelo de embeddings a uno con otra dimensión exige una migración
+  -- nueva: `alter table ... alter column embedding type vector(N)`, borrar
+  -- y recrear el índice HNSW de abajo (queda atado a la dimensión con la
+  -- que se crea) y recrear match_knowledge (su firma fija vector(384)) —
+  -- no alcanza con cambiar HUGGINGFACE_EMBEDDING_MODEL.
+  embedding extensions.vector(384) not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique (source_type, source_id, chunk_index)
+);
+
+alter table public.knowledge_embeddings enable row level security;
+
+-- HNSW + vector_cosine_ops: la similitud de coseno es la que usa
+-- match_knowledge (operador `<=>`) — el índice debe crearse con los mismos
+-- ops que la consulta o Postgres no lo usa y cae a escaneo secuencial.
+create index knowledge_embeddings_embedding_idx
+  on public.knowledge_embeddings
+  using hnsw (embedding extensions.vector_cosine_ops);
+
+create index knowledge_embeddings_source_idx
+  on public.knowledge_embeddings (source_type, source_id);
+
+-- ============================================================
+-- 20260825100200_create_match_knowledge.sql
+-- ============================================================
+-- match_knowledge: dado el embedding de una pregunta, devuelve las fichas
+-- más parecidas de knowledge_embeddings. SECURITY INVOKER (no DEFINER,
+-- a diferencia de is_admin()/is_order_buyer() de la Fase 2.3): esta función
+-- no necesita saltarse RLS, así que corre con los privilegios del que la
+-- llama y respeta la política SELECT de knowledge_embeddings (solo
+-- authenticated) sin necesitar lógica propia de autorización.
+--
+-- similarity = 1 - distancia_coseno: el operador `<=>` de pgvector devuelve
+-- distancia de coseno (0 = idéntico, 2 = opuesto), no similitud; se invierte
+-- aquí para que el resto del código (threshold, orden) trabaje con
+-- "más alto = más parecido", más intuitivo que una distancia.
+create function public.match_knowledge(
+  query_embedding extensions.vector(384),
+  p_source_type text default null,
+  match_count int default 5,
+  similarity_threshold float default 0.3
+)
+returns table (
+  source_type text,
+  source_id uuid,
+  content text,
+  metadata jsonb,
+  similarity float
+)
+language sql
+security invoker
+set search_path = public, extensions
+stable
+as $$
+  select
+    ke.source_type,
+    ke.source_id,
+    ke.content,
+    ke.metadata,
+    1 - (ke.embedding <=> query_embedding) as similarity
+  from public.knowledge_embeddings ke
+  where (p_source_type is null or ke.source_type = p_source_type)
+    and 1 - (ke.embedding <=> query_embedding) >= similarity_threshold
+  order by ke.embedding <=> query_embedding
+  limit match_count;
+$$;
+
+revoke execute on function public.match_knowledge(extensions.vector(384), text, int, float)
+  from public, anon;
+grant execute on function public.match_knowledge(extensions.vector(384), text, int, float)
+  to authenticated;
+
+-- ============================================================
+-- 20260825100300_knowledge_embeddings_rls.sql
+-- ============================================================
+-- Políticas y GRANTs de knowledge_embeddings (decisión 1 de la Sesión 4: la
+-- IA exige sesión — ni anon ni la cuota gratuita de Hugging Face quedan
+-- expuestas a un visitante sin cuenta).
+--
+-- SELECT: solo authenticated. Los productos INACTIVOS igual tienen ficha
+-- aquí (nada la borra al desactivar, solo al eliminar) — no se filtra en
+-- esta política porque esta tabla no sabe de products.is_active; el
+-- descarte pasa en el service (vector-search.service, Fase 4.4), que
+-- hidrata contra products y descarta lo que ya no es visible.
+create policy "knowledge_embeddings_select_authenticated" on public.knowledge_embeddings
+  for select
+  to authenticated
+  using (true);
+
+-- INSERT/UPDATE/DELETE: sin política ni GRANT — deliberado, no un olvido.
+-- Solo el cliente admin (service_role) escribe aquí, desde
+-- embedding.service.ts inyectado en un Route Handler o en scripts/ (Fase
+-- 4.2/4.3), nunca desde el navegador. service_role ya tiene BYPASSRLS y
+-- privilegios de tabla desde el bootstrap del proyecto (mismo patrón que
+-- create_order_from_cart, Fase 2.2: ningún GRANT explícito a service_role
+-- en ninguna migración de este repo).
+
+grant select on public.knowledge_embeddings to authenticated;

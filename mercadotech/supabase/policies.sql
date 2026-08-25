@@ -4,6 +4,7 @@
 -- supabase/migrations/ (20260819110000 y 20260819120000).
 -- Generado: 2026-08-21 — Fases 2.3–2.4 (2.3 corregida en Fase 2.5:
 -- se eliminó una recursión infinita entre orders y order_items).
+-- Actualizado: 2026-08-25 — Fase 4.1 (RLS de knowledge_embeddings).
 
 -- ============================================================
 -- 20260819110000_create_rls_policies.sql (Fase 2.3 — tablas)
@@ -612,3 +613,30 @@ create policy "avatars_objects_delete_own_folder" on storage.objects
   );
 
 -- Sin política de UPDATE, misma razón que product-images.
+
+-- ============================================================
+-- 20260825100300_knowledge_embeddings_rls.sql (Fase 4.1)
+-- ============================================================
+-- Políticas y GRANTs de knowledge_embeddings (decisión 1 de la Sesión 4: la
+-- IA exige sesión — ni anon ni la cuota gratuita de Hugging Face quedan
+-- expuestas a un visitante sin cuenta).
+--
+-- SELECT: solo authenticated. Los productos INACTIVOS igual tienen ficha
+-- aquí (nada la borra al desactivar, solo al eliminar) — no se filtra en
+-- esta política porque esta tabla no sabe de products.is_active; el
+-- descarte pasa en el service (vector-search.service, Fase 4.4), que
+-- hidrata contra products y descarta lo que ya no es visible.
+create policy "knowledge_embeddings_select_authenticated" on public.knowledge_embeddings
+  for select
+  to authenticated
+  using (true);
+
+-- INSERT/UPDATE/DELETE: sin política ni GRANT — deliberado, no un olvido.
+-- Solo el cliente admin (service_role) escribe aquí, desde
+-- embedding.service.ts inyectado en un Route Handler o en scripts/ (Fase
+-- 4.2/4.3), nunca desde el navegador. service_role ya tiene BYPASSRLS y
+-- privilegios de tabla desde el bootstrap del proyecto (mismo patrón que
+-- create_order_from_cart, Fase 2.2: ningún GRANT explícito a service_role
+-- en ninguna migración de este repo).
+
+grant select on public.knowledge_embeddings to authenticated;

@@ -141,6 +141,39 @@ export type Database = {
           },
         ]
       }
+      knowledge_embeddings: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string
+          id: string
+          metadata: Json
+          source_id: string
+          source_type: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding: string
+          id?: string
+          metadata?: Json
+          source_id: string
+          source_type: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string
+          id?: string
+          metadata?: Json
+          source_id?: string
+          source_type?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
@@ -580,6 +613,21 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order_id: string }; Returns: boolean }
       is_order_seller: { Args: { p_order_id: string }; Returns: boolean }
+      match_knowledge: {
+        Args: {
+          match_count?: number
+          p_source_type?: string
+          query_embedding: string
+          similarity_threshold?: number
+        }
+        Returns: {
+          content: string
+          metadata: Json
+          similarity: number
+          source_id: string
+          source_type: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
