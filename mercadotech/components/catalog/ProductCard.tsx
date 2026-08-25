@@ -6,7 +6,10 @@ import { RatingStars } from "@/components/shared/RatingStars";
 import type { Product } from "@/types/product";
 
 export interface ProductCardProps {
-  product: Product;
+  // similarity es opcional a propósito (Fase 4.4): solo lo trae la pestaña
+  // "Resultados con IA" de /buscar — el catálogo normal y el resto de
+  // ProductGrid nunca lo pasan.
+  product: Product & { similarity?: number };
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -20,6 +23,11 @@ export function ProductCard({ product }: ProductCardProps) {
         {!product.is_active ? (
           <span className="absolute left-2 top-2 rounded bg-foreground/80 px-2 py-0.5 text-xs font-medium text-background">
             No disponible
+          </span>
+        ) : null}
+        {product.similarity !== undefined ? (
+          <span className="absolute top-2 right-2 rounded bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+            {Math.round(product.similarity * 100)}% similar
           </span>
         ) : null}
       </div>

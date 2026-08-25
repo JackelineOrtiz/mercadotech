@@ -12,8 +12,9 @@ export interface SearchBarProps {
   className?: string;
 }
 
-// La búsqueda semántica (toggle IA) llega en la sesión 4 — hoy este input
-// solo navega a /buscar?q= con búsqueda por texto (Fase 3.4).
+// Solo navega a /buscar?q= — la pestaña "Coincidencia exacta" vs
+// "Resultados con IA" (Fase 4.4) vive en la propia página de resultados,
+// no aquí.
 export function SearchBar({ defaultValue = "", onSearch, className }: SearchBarProps) {
   const [query, setQuery] = useState(defaultValue);
   const router = useRouter();
