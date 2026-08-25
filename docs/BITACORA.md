@@ -8,6 +8,239 @@ salvo las secciones marcadas explícitamente.
 
 ---
 
+## Sesión 4 — Integrando IA en tu SaaS con RAG (2026-08-25)
+
+Pipeline RAG completo sobre pgvector: indexar productos y artículos de FAQ
+como embeddings, buscarlos por similitud semántica y responder con dos
+asistentes conversacionales (compras/soporte) que citan sus fuentes, sobre
+el frontend de la Sesión 3.
+
+### Fase 4.0 — Provisión de dependencias de IA (commit `f069ac1`)
+
+**Construido:** `.env.example` documenta `HUGGINGFACEHUB_API_TOKEN`,
+`HUGGINGFACE_EMBEDDING_MODEL` y `HUGGINGFACE_CHAT_MODEL` (sin valores);
+`npm i @huggingface/inference` (único SDK de IA del proyecto — el resto de
+la capa de IA usa `fetch` directo); `npm i -D tsx`.
+
+**Verificado real:** smoke test contra la API real de Hugging Face desde un
+script temporal (nunca commiteado): `featureExtraction` con
+`sentence-transformers/all-MiniLM-L6-v2` devolvió un vector de 384 números;
+un chat completion contra el router OpenAI-compatible con
+`meta-llama/Llama-3.1-8B-Instruct` respondió correctamente — ninguno de los
+dos modelos había rotado, no hizo falta proponer reemplazo.
+
+### Fase 4.1 — Infraestructura vectorial (commit `423ba5a`)
+
+**Construido:** 4 migraciones nuevas — `enable_pgvector` (extensión en el
+schema `extensions`), `create_knowledge_embeddings` (tabla única
+discriminada por `source_type` para productos y artículos, `embedding
+vector(384)`, índice HNSW `vector_cosine_ops`, `unique(source_type,
+source_id, chunk_index)`), `create_match_knowledge` (RPC `security invoker`
+que calcula `1 - distancia_coseno` y filtra por umbral), `knowledge_
+embeddings_rls` (SELECT solo `authenticated`); `types/database.ts`
+regenerado.
+
+**Decisión:** una sola tabla para las dos fuentes (`source_id` sin FK dura,
+apuntando a `products.id` o `support_articles.id` según `source_type`) en
+vez de dos tablas — permite una misma búsqueda semántica sobre ambos tipos
+de contenido sin duplicar el RPC ni el índice.
+
+### Fase 4.2 — Capa de IA y servicio de embeddings (commit `03a81cb`)
+
+**Construido:** `lib/constants/ai.ts` (todos los tunables del pipeline, con
+el porqué de cada valor en su comentario); `lib/ai/embeddings.ts`
+(`generateEmbedding` vía SDK, `buildProductEmbeddingText`/
+`buildSupportArticleEmbeddingText`); `lib/ai/completion.ts`
+(`generateCompletion` vía `fetch` al router OpenAI-compatible —
+`feature-extraction` no está disponible ahí, por eso las dos vías son
+distintas); `lib/ai/prompts.ts`; `services/embedding.service.ts`
+(`indexProduct`/`indexSupportArticle`, `vectorToPgvector` para pasarle el
+vector a PostgREST como texto).
+
+**Decisión:** el modelo de chat se elige por `HUGGINGFACE_CHAT_MODEL`
+(variable de entorno, con default en código), nunca hardcodeado — la
+disponibilidad de modelos gratuitos de Hugging Face rota sin aviso.
+
+### Fase 4.3 — Indexación automática (commit `fc1ed0f`)
+
+**Construido:** `app/api/v1/reindex/route.ts`; `services/indexing-
+trigger.service.ts` (`triggerReindex`, fire-and-forget); `useProductForm`/
+`useSellerProducts` disparan reindex al crear/editar/activar/desactivar/
+borrar; `scripts/index-all.ts` (batch completo, cliente admin construido a
+mano — `lib/supabase/admin.ts` no es importable fuera de Next por el paquete
+`server-only`); migración `grant_service_role_read_for_indexing.sql`.
+
+**Problema → solución:** (1) `service_role` tiene BYPASSRLS pero eso no
+sustituye los GRANT de tabla de Postgres — sin `grant select/insert/...`
+explícito, el cliente admin del script recibía "permission denied" al leer
+`products`/`categories`/`support_articles` (y más tarde `product_images`/
+`reviews`, Fase 4.7). Corregido con la migración de grants. (2) Node 20 no
+tiene `WebSocket` global; el constructor de `SupabaseClient` inicializa
+`RealtimeClient` igual, aunque nunca se use — el script fallaba con "native
+WebSocket not found". Corregido con una clase `NoopWebSocketTransport`
+pasada como `realtime.transport`.
+
+**Verificado real:** tras `index-all`, 24 filas (14 productos + 10
+artículos); publicar un producto nuevo por la UI crea la fila 25 sin correr
+el script.
+
+### Fase 4.4 — Búsqueda semántica en el catálogo (commit `33d7f4e`)
+
+**Construido:** `services/vector-search.service.ts` (`searchByEmbedding`
+sobre el RPC, `searchProducts` hidrata contra `products` y descarta
+huérfanos inactivos/borrados); `app/api/v1/search/semantic/route.ts`;
+`hooks/useSemanticSearch.ts`; `/buscar` con pestañas "Coincidencia exacta"/
+"Resultados con IA" (Base UI `Tabs`); `ProductCard` con badge de
+similitud.
+
+**Decisión:** la IA exige sesión — la pestaña IA y los dos asistentes
+muestran "Inicia sesión..." al anónimo en vez de responder. Protege la
+cuota gratuita de Hugging Face y evita que `knowledge_embeddings` (RLS solo
+`authenticated`) quede inútil para quien no tiene sesión.
+
+**Verificado real:** "audífonos para gimnasio" trae primero productos de
+audio deportivo (ver Fase 4.8 para el detalle con datos).
+
+### Fase 4.5 — Constructor de contexto (commit `b33da79`)
+
+**Construido:** `lib/ai/context-builder.ts`, funciones puras (`buildContext`
+selecciona fuentes por similitud/presupuesto de caracteres, extrae
+`title`/`price`/`image_url`/`category` de `metadata` sin red ni Supabase) —
+demostradas con datos de ejemplo en el propio prompt de la fase, sin
+levantar el servidor.
+
+### Fase 4.6 — Servicio conversacional (commit `3b4aad7`)
+
+**Construido:** `services/chat.service.ts` (`ask`: embedding de la
+pregunta → `searchByEmbedding` → `buildContext` → `generateCompletion`);
+`app/api/v1/chat/route.ts` (401/400/422, log estructurado
+`retrievedCount/usedSourceCount/hasRelevantContext/contextTruncated` —
+insumo real de la calibración de la Fase 4.8); `types/chat.ts`;
+`lib/api-response.ts` gana `toErrorMessage` (deduplicado tras aparecer 3
+veces: `PostgrestError` es un objeto plano, no un `Error`, y `String(err)`
+sobre él da `"[object Object]"`).
+
+**Verificado real:** `curl` al endpoint con sesión devuelve respuesta con
+`sources[]`.
+
+### Fase 4.7 — Interfaz del asistente (commit `e816585`)
+
+**Construido:** `hooks/useChat.ts`, `hooks/useMyTickets.ts`; 5 componentes
+en `components/chat/` (`ChatWindow`/`ChatMessage`/`ChatInput`/
+`LoadingMessage`/`SourcesList` — fuentes de tipo producto enlazan a
+`/producto/[id]`, de tipo artículo a `/soporte`); `/asistente`, `/soporte`
+(con sección "Mis tickets", solo lectura); `services/ticket.service.ts`;
+middleware con `/asistente`/`/soporte` como rutas protegidas; `UserMenu`/
+`MobileNav` con las entradas nuevas.
+
+**Bug real encontrado y corregido:** `mapProduct` (de la Sesión 3,
+`product.service.ts`) no reenviaba el cliente Supabase inyectado a
+`getPublicUrl`, así que bajo `scripts/index-all.ts` (cliente admin) creaba
+de encubierto un cliente NUEVO por defecto — reproduciendo el bug de
+WebSocket de la Fase 4.3 desde un sitio inesperado. Corregido: `mapProduct`
+acepta y reenvía `supabase` opcional; 4 call sites actualizados. TypeScript
+detectó un quinto bug real de paso al cambiar la firma:
+`seller.service.ts` llamaba `data.map(mapProduct)` a secas, lo que habría
+pasado el índice del array como el parámetro `supabase`.
+
+**Verificado real:** conversación completa en el navegador, con fuentes
+clicables que abren el producto/artículo correcto (detalle en Fase 4.8).
+
+### Fase 4.8 — Calibración, observabilidad y casos de prueba (commit `56dd592`)
+
+**Construido:** nada nuevo (fase de verificación) — `docs/RAG.md` con los 6
+casos de la spec, cada uno con evidencia real (SQL, transcripción, log del
+endpoint).
+
+**Verificado real:** indexación automática (24→25 filas al publicar);
+recuperación semántica (producto deportivo real publicado en esta misma
+fase queda #1 al 52% de similitud); respuesta contextual de compras y de
+soporte, cada una citando fuentes reales con link; caso sin información
+("¿venden autos usados?") — el modelo admite que no sabe en 2/2 corridas,
+aunque la sugerencia de abrir un ticket varió entre corridas (el `system
+prompt` ya se lo pide; es variabilidad del LLM, no del código); navegación
+desde una fuente al producto correcto.
+
+**Decisión de calibración:** el threshold de similitud se queda en **0.3**.
+Con este tamaño de corpus (~10-14 fichas por `source_type`), el piso de
+ruido de fondo entre textos sin relación ya ronda 41-47% de similitud
+coseno — por encima de 0.3 — así que mover el threshold no distingue
+"sin información" de "información real" sin también cortar recomendaciones
+legítimas secundarias (ver tabla de datos en `docs/RAG.md`). El filtro real
+contra preguntas fuera de dominio lo hace el `system prompt` del LLM,
+verificado funcionando en las pruebas de esta fase.
+
+---
+
+## Cierre de Sesión 4
+
+### Criterios de aceptación
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| Indexación automática al publicar/editar (sin correr el script a mano) | ✅ | Fase 4.3, reverificado en 4.8 (24→25 filas) |
+| Búsqueda semántica encuentra por significado, no solo por palabra literal | ✅ | Fase 4.4, caso 2 de `docs/RAG.md` |
+| Asistente de compras responde solo con productos reales, citados | ✅ | Fase 4.6/4.7, caso 3 de `docs/RAG.md` |
+| Asistente de soporte responde solo con FAQ real, citada, y admite cuando no sabe | ✅ | Fase 4.6/4.7, casos 4 y 5 de `docs/RAG.md` |
+| IA nunca expuesta a usuarios anónimos | ✅ | Fase 4.4/4.7, verificado con sesión cerrada |
+| La UI nunca importa `lib/ai/` directamente | ✅ | `grep -rl "lib/ai" components hooks` vacío en las 5 fases con UI nueva |
+| `npm run lint`, `type-check` y `build` pasan | ✅ | Cada fase, última vez en 4.8 |
+
+### Entregables de la spec × estado
+
+| Entregable | Estado | Evidencia |
+|---|---|---|
+| pgvector + `knowledge_embeddings` + `match_knowledge` + RLS | ✅ | Fase 4.1 |
+| `lib/ai/` (embeddings, completion, prompts) + `lib/constants/ai.ts` | ✅ | Fase 4.2 |
+| Indexación automática + `scripts/index-all.ts` | ✅ | Fase 4.3 |
+| Búsqueda semántica en `/buscar` | ✅ | Fase 4.4 |
+| Constructor de contexto puro | ✅ | Fase 4.5 |
+| `chat.service` + `POST /api/v1/chat` | ✅ | Fase 4.6 |
+| `/asistente`, `/soporte`, componentes de chat, Mis tickets | ✅ | Fase 4.7 |
+| `docs/RAG.md` con los 6 casos + calibración | ✅ | Fase 4.8 |
+| `docs/BITACORA.md` + `CLAUDE.md` actualizado | ✅ | Este cierre |
+
+### Deuda técnica y limitaciones conocidas (vigentes en el código)
+
+- **`source_id` sin FK dura** en `knowledge_embeddings`: al borrar un
+  producto o artículo su ficha queda huérfana hasta el próximo
+  `index-all` o hasta que el reindex best-effort la limpie;
+  `vector-search.service` ya descarta huérfanos al hidratar, así que no es
+  visible en la UI — es deuda de limpieza de datos, no de comportamiento.
+- **`hasRelevantContext` no distingue "sin información" de "corpus
+  pequeño con ruido de fondo alto"** — con threshold 0.3, el corpus actual
+  (~10-14 fichas por tipo) casi siempre devuelve 5 fuentes; el filtro real
+  contra preguntas fuera de dominio es el `system prompt` del LLM, no el
+  threshold (decisión documentada en Fase 4.8 y `docs/RAG.md`). Si el
+  corpus crece, vale la pena recalibrar.
+- **La sugerencia de abrir un ticket ante "sin información" es del LLM, no
+  determinista** — el `system prompt` ya se lo pide explícitamente
+  (`lib/ai/prompts.ts`); en las pruebas de la Fase 4.8 apareció en algunas
+  corridas y en otras no, aunque el modelo nunca inventó una respuesta.
+- **Sin streaming**: la respuesta del asistente llega completa, no token a
+  token — fuera de alcance declarado de la sesión.
+- **Sin crear tickets desde el chat**: `services/ticket.service.ts` solo
+  lista (`listMine`); crear tickets llega con el agente de la Sesión 8.
+- **Sin voz**: texto puro en ambos asistentes; la Sesión 8 la agrega sobre
+  esta misma base de conocimiento.
+- **Modelos de Hugging Face pueden rotar sin aviso** (nivel gratuito): el
+  Prompt 0 de esta sesión los verificó vigentes; si dejan de responder, el
+  fix es cambiar `HUGGINGFACE_CHAT_MODEL`/`HUGGINGFACE_EMBEDDING_MODEL` en
+  `.env.local`, nunca el código (tabla de síntomas en `docs/RAG.md`).
+- Toda la deuda técnica de la Sesión 3 sigue vigente sin cambios (ver esa
+  sección más abajo).
+
+### Pendientes para la Sesión 5 y heredados
+
+- **Sesión 5** (según el mapa de `README.md`): sin leer todavía — pendiente
+  hasta que se ejecute su Prompt 0/1.
+- **Heredado de sesiones 1-3**: sin pendientes nuevos más allá de los ya
+  registrados en el cierre de la Sesión 3 (`docs/COSTOS.md`/`docs/
+  PROMPTS.md` de la Sesión 1, si hicieran falta, siguen sin evidencia de
+  haberse ejecutado).
+
+---
+
 ## Sesión 3 — UI Inteligente y Frontend Multimodal (2026-08-24)
 
 Todas las pantallas del mapa de rutas + hooks + services + drag & drop
