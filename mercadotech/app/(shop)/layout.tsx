@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/shared/Container";
 import { useAuth } from "@/hooks/useAuth";
 import { useCategories } from "@/hooks/useCategories";
+import { useCart } from "@/hooks/useCart";
 
 export default function ShopLayout({
   children,
@@ -13,11 +14,12 @@ export default function ShopLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { profile, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { categories } = useCategories();
+  const { count: cartCount } = useCart(user?.id);
 
-  // cartCount llega en la Fase 3.6 (useCart). SearchBar ya navega a
-  // /buscar?q= por sí sola (Fase 3.2) — no necesita conectarse a nada aquí.
+  // SearchBar ya navega a /buscar?q= por sí sola (Fase 3.2) — no necesita
+  // conectarse a nada aquí.
 
   async function handleLogout() {
     await logout();
@@ -30,7 +32,7 @@ export default function ShopLayout({
     <div className="flex min-h-screen flex-col">
       <Navbar
         categories={categories}
-        cartCount={0}
+        cartCount={cartCount}
         user={profile}
         onLogout={handleLogout}
       />

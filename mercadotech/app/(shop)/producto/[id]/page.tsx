@@ -7,6 +7,7 @@ import { useProduct } from "@/hooks/useProduct";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useReviews } from "@/hooks/useReviews";
 import { useFavorite } from "@/hooks/useFavorite";
+import { useCart } from "@/hooks/useCart";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductInfo } from "@/components/product/ProductInfo";
 import { BuyBox } from "@/components/product/BuyBox";
@@ -37,6 +38,7 @@ export default function ProductoPage() {
     submit: submitReview,
   } = useReviews(productId, user?.id);
   const { isFavorite, toggle: toggleFavorite } = useFavorite(productId, user?.id);
+  const { add: addToCart } = useCart(user?.id);
 
   function requireLogin() {
     router.push(`/login?redirectTo=/producto/${productId}`);
@@ -64,9 +66,14 @@ export default function ProductoPage() {
             isOwner={isOwner}
             isFavorite={isFavorite}
             onToggleFavorite={toggleFavorite}
-            // El carrito real llega en la Fase 3.6 — no existe cart.service
-            // ni useCart todavía (restricción explícita de esta fase).
-            onAddToCart={() => toast.info("El carrito llega en la Fase 3.6.")}
+            onAddToCart={async (quantity) => {
+              try {
+                await addToCart(product.id, quantity);
+                toast.success("Agregado al carrito.");
+              } catch (err) {
+                toast.error((err as Error).message);
+              }
+            }}
             onRequireLogin={requireLogin}
           />
         </div>
