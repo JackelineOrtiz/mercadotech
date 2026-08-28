@@ -2,6 +2,10 @@
 
 # dependencies
 /node_modules
+# mcp/ es un paquete npm propio (Sesión 5) con su node_modules aparte —
+# /node_modules arriba solo ancla la raíz, así que se repite sin ancla.
+mcp/node_modules
+mcp/dist
 /.pnp
 .pnp.*
 .yarn/*
