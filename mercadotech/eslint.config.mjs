@@ -19,6 +19,10 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "supabase/**",
+      // mcp/ es un paquete npm propio (Sesión 5) con su propio
+      // type-check; mcp/dist/ es su build empaquetado por esbuild —
+      // no hay nada útil que lintear ahí (Fase 5.5 en adelante).
+      "mcp/dist/**",
     ],
   },
 ];
