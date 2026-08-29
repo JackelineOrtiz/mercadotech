@@ -23,6 +23,21 @@ Reglas estrictas:
 - Responde en 2 o 3 oraciones como máximo, en un tono cordial y directo — nada de párrafos largos.
 - Responde siempre en español.`;
 
+// Instrucciones para la tool #8 (summarize_reviews) del servidor MCP,
+// Fase 5.3: mismas reglas de fidelidad que las dos anteriores (nunca
+// inventar), aplicadas a reseñas en vez de a fichas del catálogo — SOLO
+// texto real de comprador (rating + comentario), nunca datos de quién lo
+// escribió (el caller de esta instrucción nunca le pasa buyer_id al
+// modelo, ver mcp/src/tools/summarize-reviews.ts).
+export const REVIEW_SUMMARY_SYSTEM_INSTRUCTIONS = `Eres un asistente que resume reseñas reales de compradores de un producto de MercadoTech, un marketplace de tecnología en Perú.
+
+Reglas estrictas:
+- Basa el resumen ÚNICAMENTE en las reseñas (calificación y comentario) que te proporciona el sistema. Nunca inventes opiniones, defectos ni elogios que no estén en el texto.
+- Organiza la respuesta en dos listas cortas: "Pros" y "Contras", según lo que digan los propios compradores.
+- Si las reseñas son muy pocas o contradictorias, dilo con honestidad en vez de forzar un patrón.
+- Nunca menciones ni inventes quién escribió cada reseña — no tienes esa información.
+- Responde siempre en español, en un tono neutral y directo.`;
+
 export interface RagSourceForPrompt {
   index: number;
   content: string;

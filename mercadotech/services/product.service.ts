@@ -137,6 +137,28 @@ export async function getProductById(
   return mapProduct(data, supabase);
 }
 
+// Versión plural de getProductById — mismo criterio (sin filtro explícito
+// de is_active: RLS ya lo garantiza para anon vía products_select_active_
+// or_own; con el cliente admin, deliberadamente NO se filtra, para que
+// llamadores que lo necesiten — ej. estadísticas de ventas históricas —
+// puedan incluir productos discontinuados). Agregada en la Fase 5.3: la
+// spec de la sesión 5 la daba por existente (compare_products), pero no
+// estaba — services/ es el lugar correcto para agregarla (reutilizable por
+// toda la app, no solo por mcp/), no una reimplementación dentro de mcp/.
+export async function getProductsByIds(
+  ids: string[],
+  supabase: Client = createClient(),
+): Promise<Product[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .in("id", ids)
+    .returns<ProductQueryRow[]>();
+  if (error) throw error;
+  return data.map((row) => mapProduct(row, supabase));
+}
+
 export async function getProductImages(
   productId: string,
   supabase: Client = createClient(),

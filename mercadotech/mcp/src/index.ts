@@ -6,10 +6,12 @@ import "./lib/stderr-redirect.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadEnv } from "./env.js";
 import { createServer } from "./server.js";
+import { registerTools } from "./tools/index.js";
 
 async function main() {
   loadEnv();
   const server = createServer();
+  registerTools(server);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

@@ -6,6 +6,9 @@
 -- se eliminó una recursión infinita entre orders y order_items).
 -- Actualizado: 2026-08-25 — Fase 4.1 (RLS de knowledge_embeddings,
 -- corregida en la Fase 4.3) y Fase 4.3 (GRANTs de service_role).
+-- Actualizado: 2026-08-28 — Fase 5.3 de la Sesión 5 (GRANTs de
+-- service_role sobre match_knowledge/orders/order_items, hallazgo real al
+-- probar el servidor MCP).
 
 -- ============================================================
 -- 20260819110000_create_rls_policies.sql (Fase 2.3 — tablas)
@@ -662,3 +665,29 @@ grant select on public.support_articles to service_role;
 -- hace join contra product_images y reviews — mismo GRANT faltante.
 grant select on public.product_images to service_role;
 grant select on public.reviews to service_role;
+
+-- ============================================================
+-- 20260828100000_grant_service_role_execute_match_knowledge.sql (Fase 5.3, Sesión 5)
+-- ============================================================
+-- Hallazgo real al probar semantic_search_products, ask_assistant y
+-- find_related_products (servidor MCP) contra el Inspector: las tres
+-- llaman a match_knowledge() con el cliente ADMIN — knowledge_embeddings
+-- solo permite SELECT a `authenticated` y el servidor MCP no tiene una
+-- sesión de usuario que ofrecer. match_knowledge es `security invoker`
+-- (Fase 4.1): el rol que la EJECUTA necesita su propio GRANT EXECUTE,
+-- además de poder leer knowledge_embeddings (ese SELECT ya lo tenía
+-- service_role desde la Fase 4.1/4.3) — el EXECUTE nunca se le había
+-- otorgado porque hasta ahora match_knowledge siempre se llamaba con el
+-- cliente de SESIÓN (Sesión 4), nunca con el admin. Mismo patrón que el
+-- hallazgo de la Fase 4.3, aplicado a una función en vez de a una tabla.
+grant execute on function public.match_knowledge(vector, text, integer, double precision)
+  to service_role;
+
+-- Mismo hallazgo, mismo origen: orders/order_items nunca tuvieron GRANT
+-- SELECT para service_role — solo los grants reflejos que Postgres da por
+-- default (TRIGGER/REFERENCES/TRUNCATE), no acceso a datos.
+-- get_order_status (tool #10) necesita leer un pedido con CUALQUIER
+-- comprador, no solo el propio; get_store_stats (tool #9, "top vendidos")
+-- agrega order_items de TODOS los vendedores.
+grant select on public.orders to service_role;
+grant select on public.order_items to service_role;
