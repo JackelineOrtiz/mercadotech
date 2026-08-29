@@ -46,6 +46,42 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  // Hallazgo del lab de gobernanza (Fase 5.6): el endpoint exigía sesión
+  // pero no verificaba que el caller fuera dueño de sourceId — cualquier
+  // usuario autenticado podía forzar el reindexado de un producto o
+  // artículo ajeno, gastando la cuota compartida de Hugging Face sin
+  // control. Se usa el cliente ADMIN para esta comprobación (no el de
+  // sesión): RLS ocultaría un producto inactivo ajeno con un select
+  // normal, y eso haría pasar la comprobación como "no existe" en vez de
+  // "existe y no es tuyo" — el admin ve el estado real siempre.
+  // Si el producto YA NO EXISTE (delete legítimo seguido de su propio
+  // triggerReindex, Fase 4.3), se deja pasar: indexSource lanzará su
+  // propio "not found" más abajo, que ya limpia la ficha huérfana — no se
+  // rompe ese flujo existente.
+  if (sourceType === "producto") {
+    const { data: product } = await admin
+      .from("products")
+      .select("seller_id")
+      .eq("id", sourceId)
+      .maybeSingle();
+    if (product && product.seller_id !== user.id) {
+      return apiError(403, "forbidden", "Solo puedes reindexar tus propios productos.");
+    }
+  } else {
+    // articulo_soporte: ningún flujo de la UI dispara esta rama hoy
+    // (solo producto, desde useProductForm/useSellerProducts) — solo un
+    // admin gestiona artículos (support_articles_insert_admin/update_admin,
+    // Fase 2.3), así que solo un admin puede reindexarlos.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (profile?.role !== "admin") {
+      return apiError(403, "forbidden", "Solo un admin puede reindexar artículos de soporte.");
+    }
+  }
+
   try {
     await indexSource(sourceType, sourceId, admin);
     return NextResponse.json({ ok: true, action: "indexed" });
