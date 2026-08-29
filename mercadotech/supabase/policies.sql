@@ -6,9 +6,9 @@
 -- se eliminó una recursión infinita entre orders y order_items).
 -- Actualizado: 2026-08-25 — Fase 4.1 (RLS de knowledge_embeddings,
 -- corregida en la Fase 4.3) y Fase 4.3 (GRANTs de service_role).
--- Actualizado: 2026-08-28 — Fase 5.3 de la Sesión 5 (GRANTs de
--- service_role sobre match_knowledge/orders/order_items, hallazgo real al
--- probar el servidor MCP).
+-- Actualizado: 2026-08-28 — Fases 5.3-5.4 de la Sesión 5 (GRANTs de
+-- service_role sobre match_knowledge/orders/order_items/profiles,
+-- hallazgo real al probar el servidor MCP).
 
 -- ============================================================
 -- 20260819110000_create_rls_policies.sql (Fase 2.3 — tablas)
@@ -691,3 +691,12 @@ grant execute on function public.match_knowledge(vector, text, integer, double p
 -- agrega order_items de TODOS los vendedores.
 grant select on public.orders to service_role;
 grant select on public.order_items to service_role;
+
+-- AMPLIADO en la Fase 5.4: mismo hallazgo, mismo origen. El resource
+-- mercadotech://sellers/{sellerId} (decisión 5 — profiles sin SELECT
+-- público, RLS de la Fase 2.3) necesita leer profiles.display_name de
+-- CUALQUIER vendedor con el cliente admin; nunca se le había dado GRANT.
+-- shared/sellers.ts hace un select() plano de una sola columna a
+-- propósito (nunca "*"), pero igual necesita el GRANT de tabla para poder
+-- correr esa columna siquiera.
+grant select on public.profiles to service_role;

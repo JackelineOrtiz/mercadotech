@@ -73,3 +73,23 @@ export async function getTopSellingProducts(
     })
     .filter((p): p is TopSellingProduct => p !== null);
 }
+
+const TOP_SELLING_LIMIT = 5;
+
+export interface StoreStats {
+  totalActiveProducts: number;
+  categories: CategoryWithCount[];
+  topSelling: TopSellingProduct[];
+}
+
+// Composición de las dos derivaciones de arriba + el total de productos
+// activos — compartida entre la tool get_store_stats (5.3) y el resource
+// mercadotech://stats (5.4), misma forma exacta en ambos.
+export async function getStoreStats(anon: Client, admin: Client): Promise<StoreStats> {
+  const [{ total: totalActiveProducts }, categories, topSelling] = await Promise.all([
+    listActiveProducts({}, anon),
+    getCategoriesWithCount(anon),
+    getTopSellingProducts(admin, TOP_SELLING_LIMIT),
+  ]);
+  return { totalActiveProducts, categories, topSelling };
+}

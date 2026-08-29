@@ -18,6 +18,22 @@ export async function listByProduct(
   return data;
 }
 
+// Agregada en la Fase 5.4 (Sesión 5): el prompt MCP
+// redactar_respuesta_pregunta necesita una pregunta puntual, no la lista
+// completa de un producto — ninguna función existente lo resolvía.
+export async function getById(
+  questionId: string,
+  supabase: Client = createClient(),
+): Promise<Question> {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("id", questionId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // Permitido por questions_insert_own: with check ((select auth.uid()) = user_id).
 export async function create(
   productId: string,

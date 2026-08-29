@@ -25,3 +25,12 @@ grant execute on function public.match_knowledge(vector, text, integer, double p
 -- order_items de TODOS los vendedores, no solo uno — mismo motivo.
 grant select on public.orders to service_role;
 grant select on public.order_items to service_role;
+
+-- AMPLIADO en la Fase 5.4: mismo hallazgo, mismo origen. El resource
+-- mercadotech://sellers/{sellerId} (decisión 5 — profiles sin SELECT
+-- público, RLS de la Fase 2.3) necesita leer profiles.display_name de
+-- CUALQUIER vendedor con el cliente admin; nunca se le había dado GRANT.
+-- shared/sellers.ts hace un select() plano de una sola columna a
+-- propósito (nunca "*"), pero igual necesita el GRANT de tabla para poder
+-- correr esa columna siquiera.
+grant select on public.profiles to service_role;
