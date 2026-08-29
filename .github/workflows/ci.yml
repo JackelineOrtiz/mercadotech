@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  web:
+    name: Lint, type-check y build (mercadotech)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mercadotech
+
+    # Next.js necesita estas variables para el build (algunas páginas
+    # construyen el cliente de Supabase al prerenderizar). No son secretos
+    # reales — el build no llega a conectarse a la base, solo necesita que
+    # las variables existan con forma válida.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mercadotech/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+  mcp:
+    name: Type-check del servidor MCP
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mercadotech/mcp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mercadotech/mcp/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
