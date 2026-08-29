@@ -5,15 +5,17 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
 
 ## Estado del proyecto
 
-Sesión 1, Sesión 2 (Fases 2.1–2.7), Sesión 3 (Fases 3.0–3.8) y Sesión 4
-(Fases 4.0–4.8) completas y commiteadas — checkout transaccional, panel del
-vendedor con drag & drop, pasada de responsive/a11y/estados, y pipeline RAG
-(pgvector + búsqueda semántica + asistentes de compras/soporte). Sesión 5
-en adelante: pendiente. Detalle fase por fase, decisiones y deuda técnica
+Sesión 1, Sesión 2 (Fases 2.1–2.7), Sesión 3 (Fases 3.0–3.8), Sesión 4
+(Fases 4.0–4.8) y Sesión 5 (Fases 5.0–5.6) completas y commiteadas —
+checkout transaccional, panel del vendedor con drag & drop, pipeline RAG
+(pgvector + búsqueda semántica + asistentes), y gobernanza (4 Skills en
+`.claude/skills/` + servidor MCP de solo lectura en `mcp/`). Sesión 6 en
+adelante: pendiente. Detalle fase por fase, decisiones y deuda técnica
 vigente → [`docs/BITACORA.md`](docs/BITACORA.md); checklist de
 responsive/a11y/estados de la Sesión 3 →
 [`docs/SESION3_CHECKLIST.md`](docs/SESION3_CHECKLIST.md); los 6 casos de
-prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md).
+prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md); el ciclo de
+revisión de gobernanza → [`docs/REVISION_S5.md`](docs/REVISION_S5.md).
 
 ## Estructura del repositorio
 
@@ -22,7 +24,13 @@ prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md).
   de generar código.
 - `docs/`: documentación técnica generada durante el proyecto (arquitectura,
   bitácora, checklists).
-- `mercadotech/`: el proyecto Next.js (se crea en la Fase 2.1).
+- `mercadotech/`: el proyecto Next.js (se crea en la Fase 2.1); `mcp/`
+  dentro de ahí es el servidor MCP (Sesión 5), paquete npm propio.
+- `.claude/skills/`: 4 Skills de gobernanza — `mercadotech-architecture-
+  enforcer` (gate previo a crear/mover archivos), `mercadotech-code-
+  reviewer` (informe /10 después de escribir), `mercadotech-automatic-
+  validator` (veredicto binario al cerrar una tarea), `mercadotech-tech-
+  lead` (scorecard de diseño). Las 4 REPORTAN, nunca editan código.
 
 ## Principio rector
 
@@ -44,7 +52,15 @@ antes de cerrar cualquier fase de frontend:
 grep -rl "@/lib/supabase\|@/lib/ai" components hooks   # debe devolver vacío
 grep -rl "from \"@/services" components                # debe devolver vacío
 grep -rl "@/lib/supabase/admin" app hooks services components | grep -v "^app/api/"  # debe devolver vacío
+grep -rl "@/app\|@/components\|@/hooks" mcp/src         # debe devolver vacío
 ```
+
+`mcp/` (Sesión 5) es un consumidor más de `services/` y `lib/ai/`: jamás
+reimplementa lógica de negocio ni importa de `app/`, `components/` ni
+`hooks/` — solo `services/`, `lib/ai/`, `lib/constants/` y `types/`. Sus
+clientes Supabase se crean en `mcp/src/context.ts` (fábrica por llamada,
+`{anon, admin}`), nunca importando `lib/supabase/admin.ts` — mismo motivo
+que `scripts/`: `server-only` revienta bajo Node/tsx puro.
 
 - `components/`: `ui/` (shadcn/Base UI genéricos), `shared/` (`Price`,
   `ProductImage`, `EmptyState`/`ErrorState`/`LoadingState`...), `layout/`
@@ -117,3 +133,17 @@ supabase stop        # apaga los contenedores
 `supabase start` imprime las credenciales locales (`API_URL`, `ANON_KEY`,
 `SERVICE_ROLE_KEY`, etc.) — son las que van en `.env.local` para desarrollar
 contra la base local en vez del proyecto de Supabase en la nube.
+
+### Servidor MCP (`mcp/`, Sesión 5)
+
+```bash
+cd mercadotech/mcp
+
+npm run dev          # tsx watch src/index.ts
+npm run build        # tsup → dist/index.js
+npm run type-check   # tsc --noEmit
+```
+
+Inspeccionar sin Claude Code (pineado a 0.15.0 por Node 20, ver
+`mcp/README.md`): `npx @modelcontextprotocol/inspector@0.15.0 npx tsx
+mcp/src/index.ts` (desde `mercadotech/`).

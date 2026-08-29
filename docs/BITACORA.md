@@ -8,6 +8,225 @@ salvo las secciones marcadas explícitamente.
 
 ---
 
+## Sesión 5 — Custom Skills y Protocolo MCP (2026-08-28)
+
+Cuatro Skills de gobernanza (`.claude/skills/`) que hacen cumplir la
+arquitectura y calidad de MercadoTech, y un servidor MCP de solo lectura
+(`mcp/`) que expone la plataforma a cualquier cliente MCP, reutilizando
+`services/` y `lib/ai/` existentes sin duplicar lógica — cerrado con un lab
+real de gobernanza sobre código de las Sesiones 2-4.
+
+### Fase 5.0 — Provisión de dependencias del MCP (commit `1f6a309`)
+
+**Construido:** `mcp/package.json` inicial; `@modelcontextprotocol/sdk`
+(resuelto a `^1.30.0` sobre el rango `^1.29.0` pineado — sigue en el major
+1.x compatible con zod 3), `zod@^3.25.76`, `tsup@^8.5.1`.
+
+**Hallazgo:** el Inspector de MCP en su tag `latest` (v2, `2.4.0`) y su
+propio v1 más reciente (`1.0.2`) ya exigen Node ≥22.7.5; el proyecto corre
+en Node 20.20.2. La última versión sin esa exigencia es `0.15.0` — pineada
+explícitamente en todas las fases siguientes.
+
+**Corrección:** `.gitignore` de `mercadotech/` solo anclaba `/node_modules`
+a la raíz del proyecto Next.js — `mcp/node_modules` (paquete npm propio) no
+quedaba ignorado; se agrega sin ancla.
+
+### Fase 5.1 — Skills de gobernanza (commit `a28ea5a`)
+
+**Construido:** `mercadotech-architecture-enforcer` (gate previo, 9 reglas
+de ubicación/dependencias, incluidas las del MCP que llegaría en 5.2-5.4),
+`mercadotech-code-reviewer` (informe /10 con checklist del dominio: RLS,
+snapshots de pedidos, stock vía RPC, orden del pipeline RAG),
+`mercadotech-automatic-validator` (binario APROBADA/FALLIDA), y
+`mercadotech-tech-lead` (scorecard ponderado, contrasta contra la deuda ya
+documentada en esta bitácora antes de reportar un hallazgo). Las 4
+declaran explícitamente que reportan, nunca editan código, y cierran con
+"CLAUDE.md gana" ante contradicción.
+
+**Verificado real:** tras reiniciar Claude Code, se probó que el enforcer
+rechaza correctamente "crea un componente que consulte productos
+directamente de Supabase" (regla #1) y que el validator da APROBADA sobre
+el repo sin cambios.
+
+### Fase 5.2 — Scaffolding del servidor MCP (commit `9a304d5`)
+
+**Construido:** `mcp/src/index.ts` (redirección de `console.log/info/warn`
+a stderr como primer *import*, no primera línea de código — en ESM los
+imports se evalúan antes que cualquier statement propio del módulo que los
+declara), `server.ts` (`McpServer` vacío), `env.ts` (`loadEnv`, reutiliza
+`process.loadEnvFile` de `scripts/index-all.ts` — API nativa de Node, no un
+parser manual como sugería la prosa de la spec), `context.ts`
+(`createContext()` fábrica por llamada con `{anon, admin}`, nunca importa
+`lib/supabase/admin.ts` por el mismo motivo que `index-all.ts`:
+`server-only` revienta bajo Node puro), y los helpers de `lib/`.
+
+**Corrección:** `tsconfig.json` de la raíz no excluía `mcp/` — su propio
+`type-check` recompilaba `mcp/src/` de forma redundante con el de `mcp/`
+mismo; se agrega `"mcp"` a `exclude`. `eslint.config.mjs` no ignoraba
+`mcp/dist/` (el build empaquetado que llegaría en la 5.5).
+
+**Verificado real:** `npx tsx mcp/src/index.ts` desde la raíz de
+`mercadotech/` no escribe nada en stdout; el Inspector 0.15.0 conecta y
+muestra el servidor con 0 tools/resources/prompts.
+
+### Fase 5.3 — Tools (commit `fc1c7a7`)
+
+**Construido:** las 10 tools de solo lectura, un archivo por tool,
+registro central en `tools/index.ts`. Cliente explícito por tool: anon
+donde los datos son públicos, admin donde la RLS real lo exige
+(`semantic_search_products`, `ask_assistant`, `find_related_products` por
+`knowledge_embeddings` solo `authenticated`; `get_store_stats`,
+`get_order_status` por `orders`/`order_items`). `get_order_status` expone
+una lista blanca explícita de campos — nunca `buyer_id`.
+
+**Bloqueo resuelto:** `product.service.getProductsByIds` no existía (la
+spec la daba por existente, reportado en el Prompt 1 de la sesión) — se
+agregó al service real, reutilizable por toda la app.
+
+**Hallazgo real de infraestructura:** `match_knowledge` es `security
+invoker` (Fase 4.1) y nunca tuvo `GRANT EXECUTE` para `service_role` —
+hasta esta fase siempre se había llamado con el cliente de sesión (Sesión
+4), nunca con el admin. Mismo patrón que el ya conocido "BYPASSRLS ≠
+GRANT" de la Fase 4.3, ahora sobre una función; `orders`/`order_items`
+tenían el mismo gap de tabla. Corregido con la migración
+`20260828100000_grant_service_role_execute_match_knowledge.sql`, confirmado
+en vivo contra el Inspector (antes: "permission denied"; después: 200 con
+datos reales).
+
+### Fase 5.4 — Resources y Prompts (commit `b32dd36`)
+
+**Construido:** los 7 resources (`info`, `products`, `products/{id}` y
+`sellers/{sellerId}` como templates con callback `list`, `categories`,
+`faq`, `stats`) y los 5 Prompts MCP (terminología: nunca "Skills" —
+`describir_producto`, `comparar_productos`, `redactar_respuesta_pregunta`,
+`resumen_de_resenas`, `generar_articulo_faq`), cada uno embebiendo el
+contenido real como `resource` dentro del mensaje. `sellers/{sellerId}`
+expone SOLO `display_name` + productos activos — nunca `phone`.
+
+**Refactor:** `getProductDetail` se movió del tool `get_product` a
+`shared/products.ts` para que el resource `products/{id}` la comparta sin
+duplicar; mismo criterio para `getStoreStats` en `shared/stats.ts`.
+Servicios nuevos agregados a la app real (no a `mcp/`):
+`support-article.service.listPublished`, `question.service.getById`.
+
+**Hallazgo real:** mismo patrón que la 5.3 — `profiles` tampoco tenía
+`GRANT SELECT` para `service_role`; el resource `sellers/{sellerId}` lo
+necesitaba. Ampliado en la misma migración de la 5.3.
+
+**Verificado real:** `resources/list` con 21 entradas (5 estáticas + 14
+`products/{id}` + 2 `sellers/{sellerId}`); con `supabase stop`,
+`resources/list` sigue respondiendo (los 2 templates degradan a 0
+instancias, `mercadotech://info` sigue funcionando) y un resource caído
+devuelve su error capturado en vez de tumbar la conexión.
+
+### Fase 5.5 — Registro y validación (commits `50de0db`, `5003c82`, `5b4b07c`)
+
+**Construido:** `.mcp.json`, `mcp/README.md` completo (arquitectura,
+decisiones, tabla de las 10+7+5 × service × cliente, síntomas).
+
+**Hallazgos reales de configuración** (los tres documentados con su
+porqué en `mcp/README.md`, corregidos empíricamente contra el Inspector
+con el mismo comando/cwd que usa Claude Code): `npx tsx` desde un cwd sin
+`node_modules` propio no encuentra el `tsx` local y cae a una copia
+cacheada rota — se usa el binario directo,
+`mercadotech/node_modules/.bin/tsx`. La resolución del alias `@/*` de
+`tsx` depende del cwd real del proceso, no de la ubicación del archivo —
+se pasa `--tsconfig` explícito. `env.ts` pasó de resolver `.env.local` por
+`process.cwd()` a resolverlo por la ubicación del propio archivo
+(`import.meta.url`), robusto sin importar desde dónde se lance el proceso.
+
+**Desviación de la spec, con la app de escritorio real:** `.mcp.json`
+terminó viviendo en `mercadotech/.mcp.json` (la raíz del proyecto Next.js),
+no en la raíz del repo como se probó primero (mismo nivel que
+`.claude/skills/`, que sí se descubre ahí — la ubicación de ambos NO
+comparte mecanismo de descubrimiento, confirmado real). Además, una
+sesión ya abierta de la app de escritorio no relee `.mcp.json` con una
+conversación nueva ni con `/mcp reconnect` — lo que funcionó fue
+`claude mcp add --scope user` (rutas absolutas) + cerrar y reabrir la app
+por completo. Documentado en `mcp/README.md` para no repetir el
+experimento.
+
+**Verificado real desde Claude Code** (no solo el Inspector): "usa la tool
+compare_products con las dos laptops" → Lenovo vs HP con precios y
+ratings reales; "pídele al asistente de compras una laptop para diseño" →
+recomendó ambas laptops citando fuentes, misma calidad que la UI web.
+
+### Fase 5.6 — Lab de validación automática (commits `e76ea81`, `f4e2a9a`, `1958c10`)
+
+**Construido:** `docs/REVISION_S5.md` — `mercadotech-tech-lead` sobre
+`services/` y `hooks/` completos (32 archivos, nota 8.2/10) y
+`mercadotech-code-reviewer` sobre `lib/ai/`, los 3 Route Handlers y
+`mcp/src/` completo (nota 8/10), corridas en esta misma conversación con
+las Skills de la 5.1 ya cargadas.
+
+**Resultado del lab:** 2 hallazgos nuevos reales, ambos corregidos —
+`cart.service.updateQuantity` no clampeaba al stock (a diferencia de
+`addItem`), y `/api/v1/reindex` no verificaba que el caller fuera dueño
+del `sourceId` que reindexaba (cualquier usuario autenticado podía forzar
+el reindexado de un producto o artículo ajeno, gastando la cuota
+compartida de Hugging Face). 2 hallazgos menores aceptados como deuda
+nueva (`(err as Error).message` repetido en 21 sitios de 14/16 hooks; el
+callback `list` de `sellers/{sellerId}` hace un fetch doble por vendedor).
+1 falso positivo descartado (`useProductForm`, 336 líneas, es cohesión de
+dominio, no dispersión de responsabilidades). Toda la deuda ya documentada
+de las Sesiones 3-4 se justificó con su enlace, sin re-corregir. Cierre:
+`VALIDACIÓN APROBADA`.
+
+**Fuera de alcance de la sesión** (declarado explícitamente): monorepo con
+workspaces (nota opcional de la spec, no necesario con el catálogo
+actual), tools de escritura en el MCP (es de solo lectura a propósito),
+agente de voz (Sesión 8), tests automatizados (`npm run test`, Sesión 6).
+
+---
+
+## Cierre de Sesión 5
+
+### Criterios de aceptación
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| MCP Inspector lista y ejecuta las 10 tools sin errores con datos del seed | ✅ | Fase 5.3, reverificado en 5.5/5.6 |
+| `ask_assistant` desde MCP produce la misma calidad que la UI web | ✅ | Fase 5.5, verificado desde Claude Code real |
+| Con Supabase detenido, `resources/list` sigue respondiendo | ✅ | Fase 5.4 |
+| Ninguna tool/resource expone teléfono, email ni nombre de comprador | ✅ | `get_order_status` (lista blanca) y `sellers/{sellerId}` (solo `display_name`), Fases 5.3-5.4 |
+| La Skill validator termina en APROBADA sobre el estado final del repo | ✅ | Fase 5.6, `docs/REVISION_S5.md` |
+| `type-check` de la raíz Y de `mcp/` pasan; el build de `mcp/` arranca | ✅ | Cada fase, última vez en 5.6 |
+
+### Entregables de la spec × estado
+
+| Entregable | Estado | Evidencia |
+|---|---|---|
+| 4 Skills commiteadas en `.claude/skills/` | ✅ | Fase 5.1 |
+| Servidor MCP: 10 Tools, 7 Resources, 5 Prompts + `mcp/README.md` | ✅ | Fases 5.2-5.5 |
+| `.mcp.json` funcional (aprobado y probado desde Claude Code) | ✅ | Fase 5.5 (ubicación corregida sobre la marcha, ver arriba) |
+| `docs/REVISION_S5.md` con el ciclo hallazgo → corrección/justificación → VALIDACIÓN APROBADA | ✅ | Fase 5.6 |
+| Bitácora y `CLAUDE.md` actualizados | ✅ | Este cierre |
+
+### Deuda técnica y limitaciones conocidas (vigentes en el código)
+
+- **`(err as Error).message` en 21 sitios de 14/16 hooks** — cast sin
+  chequeo de tipo; no rompe en la práctica (todo lo que los services de
+  este repo lanzan trae `.message` real), pero es inconsistente con
+  `toErrorMessage` de `lib/api-response.ts`. Candidato a un helper
+  compartido cuando la Sesión 6 traiga tests.
+- **El callback `list` de `mercadotech://sellers/{sellerId}` hace un
+  fetch doble por vendedor** para armar el listado — inmediato con 2
+  vendedores en el seed, no escala si el catálogo de vendedores crece.
+- **`source_id` sin FK dura en `knowledge_embeddings`, `hasRelevantContext`
+  y demás deuda de la Sesión 4** siguen vigentes sin cambios — ver esa
+  sección más abajo.
+- Toda la deuda técnica de la Sesión 3 sigue vigente sin cambios.
+
+### Pendientes para la Sesión 6 y heredados
+
+- **Sesión 6** (testing, según el mapa de `README.md`): sin leer todavía.
+- **Heredado de sesiones 1-4**: sin pendientes nuevos más allá de los ya
+  registrados en cierres anteriores (`docs/COSTOS.md`/`docs/PROMPTS.md` de
+  la Sesión 1, si hicieran falta, siguen sin evidencia de haberse
+  ejecutado).
+
+---
+
 ## Sesión 4 — Integrando IA en tu SaaS con RAG (2026-08-25)
 
 Pipeline RAG completo sobre pgvector: indexar productos y artículos de FAQ
