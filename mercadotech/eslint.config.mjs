@@ -23,6 +23,11 @@ const eslintConfig = [
       // type-check; mcp/dist/ es su build empaquetado por esbuild —
       // no hay nada útil que lintear ahí (Fase 5.5 en adelante).
       "mcp/dist/**",
+      // coverage/ (Sesión 6, Fase 6.1) es el reporte HTML de v8 —
+      // JS vendorizado del propio reporte, no código del proyecto.
+      // Gitignorado, pero ESLint no respeta .gitignore solo: hallazgo
+      // real al correr npm run lint tras el primer test:coverage.
+      "coverage/**",
     ],
   },
 ];
