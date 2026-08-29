@@ -100,14 +100,33 @@ export async function addItem(
   if (error) throw error;
 }
 
+// Clampea al stock actual, mismo criterio que addItem (Fase 5.6: hallazgo
+// del lab de gobernanza — antes de esto era la única de las dos funciones
+// que no lo hacía). Hoy es defensa en profundidad, no un fix de un bug
+// visible: CartItemRow ya solo ofrece 1..stock en su <select>, así que
+// ningún caller real de la UI manda un valor fuera de rango.
 export async function updateQuantity(
   cartItemId: string,
   quantity: number,
   supabase: Client = createClient(),
 ): Promise<void> {
+  const { data: item, error: itemError } = await supabase
+    .from("cart_items")
+    .select("product_id")
+    .eq("id", cartItemId)
+    .single();
+  if (itemError) throw itemError;
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("stock")
+    .eq("id", item.product_id)
+    .single();
+  if (productError) throw productError;
+
   const { error } = await supabase
     .from("cart_items")
-    .update({ quantity })
+    .update({ quantity: Math.min(quantity, product.stock) })
     .eq("id", cartItemId);
   if (error) throw error;
 }
