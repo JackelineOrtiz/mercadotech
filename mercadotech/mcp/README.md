@@ -91,48 +91,48 @@ npx @modelcontextprotocol/inspector@0.15.0 npx tsx mcp/src/index.ts
 
 ## `.mcp.json` y por qué usa `--tsconfig` explícito
 
-`.mcp.json` vive en la **raíz del repo** (un nivel arriba de `mercadotech/`,
-junto a `.claude/skills/` — ahí es donde Claude Code descubre la config de
-este proyecto, confirmado empíricamente: es donde ya descubrió las Skills de
-la Fase 5.1 tras reiniciar la sesión).
+`.mcp.json` vive en `mercadotech/.mcp.json` (la raíz del proyecto Next.js, NO
+un nivel arriba en la raíz del repo). Esto se corrigió empíricamente en la
+Fase 5.5: la primera versión de este archivo vivía en la raíz del repo —
+mismo nivel que `.claude/skills/`, que sí se descubre ahí — pero al probar
+`/mcp` en una sesión real de Claude Code (interfaz gráfica) el servidor no
+aparecía listado en absoluto. Moverlo a `mercadotech/.mcp.json` lo resolvió.
+Conclusión (documentada para no repetir el experimento): la ubicación de
+`.mcp.json` y la de `.claude/skills/` NO tienen por qué coincidir — cada una
+la descubre un mecanismo distinto de Claude Code.
 
 ```json
 {
   "mcpServers": {
     "mercadotech": {
-      "command": "mercadotech/node_modules/.bin/tsx",
-      "args": [
-        "--tsconfig",
-        "mercadotech/mcp/tsconfig.json",
-        "mercadotech/mcp/src/index.ts"
-      ]
+      "command": "node_modules/.bin/tsx",
+      "args": ["--tsconfig", "mcp/tsconfig.json", "mcp/src/index.ts"]
     }
   }
 }
 ```
 
-Tres detalles no obvios, cada uno confirmado con una prueba real antes de
+Dos detalles no obvios, cada uno confirmado con una prueba real antes de
 fijar esta forma (no es la forma literal que sugiere la spec de la sesión —
 gana lo verificado):
 
 1. **`command` apunta al binario de `tsx` DENTRO de `node_modules/.bin/`, no a
-   `npx tsx`.** Cuando Claude Code lanza el servidor, el cwd del proceso es el
-   directorio que contiene `.mcp.json` (la raíz del repo) — que no tiene
-   `node_modules` propio. `npx tsx` desde ahí no encuentra ningún `tsx`
-   instalado localmente (solo existe dentro de `mercadotech/node_modules/`) y
-   cae a una copia cacheada de `npx` en un contexto distinto, que falla al
-   resolver la ruta del entry point (`ERR_MODULE_NOT_FOUND`, confirmado real).
-2. **`--tsconfig mercadotech/mcp/tsconfig.json` es obligatorio.** La
-   resolución del alias `@/*` de `tsx` depende del cwd del proceso, no de la
-   ubicación del archivo que se ejecuta — sin este flag, lanzado desde la raíz
-   del repo (sin ningún `tsconfig.json` ahí), ningún import `@/services/...`
-   resuelve (`Cannot find package '@/services'`, confirmado real).
-3. **`env.ts` resuelve `.env.local` por la ubicación del propio archivo, no
-   por `process.cwd()`.** Como el cwd del proceso lanzado por `.mcp.json` es
-   la raíz del repo (no `mercadotech/`), una ruta relativa al cwd nunca
-   encontraría `mercadotech/.env.local` — se corrigió a una ruta absoluta
-   calculada con `import.meta.url`, así que funciona sin importar desde dónde
-   se lance el proceso.
+   `npx tsx`.** Más robusto que depender de que `npx` resuelva correctamente
+   el `tsx` local del cwd que Claude Code use para lanzar el proceso —
+   evita por completo la clase de fallo `ERR_MODULE_NOT_FOUND` que sí
+   apareció al probar `.mcp.json` desde la raíz del repo (sin
+   `node_modules` propio ahí, `npx tsx` caía a una copia cacheada rota).
+2. **`--tsconfig mcp/tsconfig.json` explícito.** La resolución del alias
+   `@/*` de `tsx` depende del cwd real del proceso, que no es 100% predecible
+   de antemano (confirmado con el mismo experimento del punto anterior:
+   lanzado sin este flag desde un directorio sin `tsconfig.json`, ningún
+   import `@/services/...` resolvía). Pasarlo explícito lo vuelve
+   independiente del cwd.
+
+`env.ts` además resuelve `.env.local` por la ubicación del propio archivo
+(`import.meta.url`), no por `process.cwd()` — funciona igual sin importar
+desde dónde termine lanzándose el proceso, defensivo ante que el cwd real de
+`.mcp.json` no esté 100% documentado.
 
 La primera vez que Claude Code lea `.mcp.json` va a pedir aprobar el servidor
 — es el comportamiento esperado, hay que aprobarlo.
@@ -144,7 +144,7 @@ Tras `npm run build` dentro de `mcp/`, reemplazar `command`/`args` por:
 ```json
 {
   "command": "node",
-  "args": ["mercadotech/mcp/dist/index.js"]
+  "args": ["mcp/dist/index.js"]
 }
 ```
 
