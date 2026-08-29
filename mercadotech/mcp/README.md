@@ -137,6 +137,29 @@ desde dónde termine lanzándose el proceso, defensivo ante que el cwd real de
 La primera vez que Claude Code lea `.mcp.json` va a pedir aprobar el servidor
 — es el comportamiento esperado, hay que aprobarlo.
 
+### Si usás la app de escritorio de Claude (Code tab) y `/mcp` no lo muestra
+
+`.mcp.json` es correcto y suficiente para el CLI (`claude mcp list` corrido con
+cwd=`mercadotech/` lo detecta y lo conecta sin problema, confirmado real). Pero
+una sesión ya abierta en la app de escritorio puede no releerlo — ni una
+conversación nueva ni `/mcp reconnect` lo forzaron a mirarlo de nuevo en la
+práctica (hallazgo real, Fase 5.5). Lo que sí funcionó:
+
+1. Registrar el servidor a nivel de **usuario** (no de proyecto), con rutas
+   absolutas para que no dependa de ningún cwd:
+   ```bash
+   claude mcp add --scope user mercadotech \
+     "/ruta/absoluta/a/mercadotech/node_modules/.bin/tsx" \
+     -- --tsconfig "/ruta/absoluta/a/mercadotech/mcp/tsconfig.json" \
+     "/ruta/absoluta/a/mercadotech/mcp/src/index.ts"
+   ```
+2. **Cerrar la app de escritorio por completo** (no solo la conversación —
+   `Cmd+Q` o "Salir" desde el dock) **y volver a abrirla.** La sesión parece
+   cachear la config de MCP al arrancar el proceso, no por conversación.
+
+Tras eso, `/mcp` mostró "mercadotech" conectado y las 10 tools quedaron
+disponibles (`mcp__mercadotech__*`).
+
 ### Variante de producción
 
 Tras `npm run build` dentro de `mcp/`, reemplazar `command`/`args` por:
@@ -210,6 +233,7 @@ Los 5 embeben el contenido real como `type: "resource"` dentro del mensaje
 | Síntoma | Causa más probable | Qué hacer |
 |---|---|---|
 | Claude Code no ve el servidor / no aparece en `/mcp` | `.mcp.json` recién creado, sesión vieja, o no se aprobó el servidor | Reiniciar la sesión de Claude Code; aprobar el servidor cuando lo pregunte |
+| En la app de escritorio, ni conversación nueva ni `/mcp reconnect` lo muestran | La sesión abierta cachea la config de MCP al arrancar el proceso, no la relee en caliente | `claude mcp add --scope user mercadotech <rutas absolutas>` y CERRAR/ABRIR la app completa (no solo la conversación) — ver sección de arriba |
 | El Inspector conecta pero "se cae" al primer uso | Algo escribió en stdout | Buscar `console.log` sin redirigir; los logs van a stderr |
 | Error de tipos/validación al registrar tools | zod 4 instalado | Pinnear `zod@^3.25.76` en `mcp/package.json` y reinstalar |
 | "This module cannot be imported…" al arrancar | Algo importó `lib/supabase/admin.ts` (`server-only`) | El MCP construye sus clientes en `src/context.ts`; revisar imports |
