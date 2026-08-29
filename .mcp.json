@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mercadotech": {
+      "command": "mercadotech/node_modules/.bin/tsx",
+      "args": [
+        "--tsconfig",
+        "mercadotech/mcp/tsconfig.json",
+        "mercadotech/mcp/src/index.ts"
+      ]
+    }
+  }
+}
