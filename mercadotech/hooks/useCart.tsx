@@ -1,11 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as cartService from "@/services/cart.service";
 import * as orderService from "@/services/order.service";
 import type { CartItem } from "@/types/cart";
 
-export function useCart(userId?: string) {
+// Bug real encontrado en la Fase 6.5 (E2E del comprador): antes de este
+// cambio, useCart era un hook "de instancia" — cada llamada (ShopLayout
+// para el contador del Navbar, /producto/[id] para addToCart, /carrito
+// para la lista) creaba su PROPIO useState independiente. A diferencia de
+// useAuth (que "parece" compartir estado entre instancias porque
+// @supabase/ssr memoiza un único cliente y todas las instancias escuchan
+// el mismo onAuthStateChange global), cart_items no tiene ningún stream de
+// eventos equivalente — nada avisaba a la instancia del Navbar que otra
+// instancia acababa de agregar un ítem. Resultado observable: el contador
+// del carrito nunca se actualizaba al agregar desde la ficha de producto
+// (confirmado por e2e/tests/buyer-flow.spec.ts, paso 4). Fix: una única
+// instancia real vive en <CartProvider>, y useCart() ahora LEE ese
+// contexto en vez de crear una nueva — mismo objeto para todo (shop)/.
+
+function useCartState(userId?: string) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,4 +112,25 @@ export function useCart(userId?: string) {
     checkout,
     retry: fetchItems,
   };
+}
+
+type CartContextValue = ReturnType<typeof useCartState>;
+
+const CartContext = createContext<CartContextValue | null>(null);
+
+// Una sola instancia real por sesión de (shop) — se monta en ShopLayout,
+// envolviendo tanto el Navbar (contador) como {children} (páginas que
+// agregan/editan/pagan). userId cambia en login/logout (useAuth ya lo
+// resuelve); useCartState reacciona igual que antes.
+export function CartProvider({ userId, children }: { userId?: string; children: ReactNode }) {
+  const cart = useCartState(userId);
+  return <CartContext.Provider value={cart}>{children}</CartContext.Provider>;
+}
+
+export function useCart() {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error("useCart debe usarse dentro de <CartProvider> (ver app/(shop)/layout.tsx).");
+  }
+  return context;
 }

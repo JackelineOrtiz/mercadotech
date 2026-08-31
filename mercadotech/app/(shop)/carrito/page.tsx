@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { CartItemRow } from "@/components/cart/CartItemRow";
 import { CartSummary } from "@/components/cart/CartSummary";
@@ -14,8 +13,9 @@ import { Button } from "@/components/ui/button";
 
 export default function CarritoPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { items, subtotal, loading, error, update, remove, checkout, retry } = useCart(user?.id);
+  // useCart() lee el CartProvider montado en (shop)/layout.tsx (Fase 6.5) —
+  // misma instancia que el Navbar y /producto/[id], ver hooks/useCart.tsx.
+  const { items, subtotal, loading, error, update, remove, checkout, retry } = useCart();
   const [checkingOut, setCheckingOut] = useState(false);
 
   async function handleCheckout() {

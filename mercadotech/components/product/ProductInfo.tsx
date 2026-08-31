@@ -16,7 +16,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         ) : null}
       </div>
       <h1 className="text-2xl font-bold">{product.title}</h1>
-      <Price value={product.price} size="lg" />
+      <Price value={product.price} size="lg" testId="product-price" />
       <p className="text-sm text-muted-foreground">
         {product.stock > 0 ? `${product.stock} disponibles` : "Sin stock"}
       </p>

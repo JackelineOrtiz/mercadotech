@@ -38,7 +38,10 @@ export default function ProductoPage() {
     submit: submitReview,
   } = useReviews(productId, user?.id);
   const { isFavorite, toggle: toggleFavorite } = useFavorite(productId, user?.id);
-  const { add: addToCart } = useCart(user?.id);
+  // useCart() lee el CartProvider montado en (shop)/layout.tsx (Fase 6.5) —
+  // sin esto, agregar acá no actualizaba el contador del Navbar (hallazgo
+  // real, ver el comentario de cabecera de hooks/useCart.tsx).
+  const { add: addToCart } = useCart();
 
   function requireLogin() {
     router.push(`/login?redirectTo=/producto/${productId}`);

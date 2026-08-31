@@ -7,6 +7,17 @@ export class ProductPage {
     await this.page.goto(`/producto/${productId}`);
   }
 
+  // ProductGallery no tiene testid propio: la imagen (real o el placeholder
+  // de ProductImage cuando falla/no existe) SIEMPRE lleva role="img" con el
+  // título del producto como nombre accesible — alcanza sin agregar nada.
+  gallery(productTitle: string) {
+    return this.page.getByRole("img", { name: productTitle });
+  }
+
+  price() {
+    return this.page.getByTestId("product-price");
+  }
+
   quantitySelect() {
     return this.page.getByTestId("buybox-quantity");
   }

@@ -10,8 +10,25 @@ export class LoginPage {
 
   async login(user: TestUser) {
     await this.goto();
-    await this.page.getByTestId("login-email").fill(user.email);
-    await this.page.getByTestId("login-password").fill(user.password);
+    const email = this.page.getByTestId("login-email");
+    const password = this.page.getByTestId("login-password");
+
+    await email.fill(user.email);
+    await password.fill(user.password);
+
+    // Hallazgo real, solo en WebKit: LoginForm es un input CONTROLADO
+    // (value={values.email} vía useState) dentro de un <Suspense> — si el
+    // fill() de email corre justo antes de que React termine de hidratar
+    // y enganchar su onChange, la hidratación pisa el DOM con el estado
+    // inicial ("") y el input queda vacío aunque el fill() haya "tenido
+    // éxito" a nivel de Playwright. Confirmado con el page snapshot de un
+    // fallo real: password con el valor correcto, email vacío y el error
+    // "Ingresa tu correo." visible. Se verifica y se rellena una vez más
+    // si el valor no se sostuvo — para entonces la hidratación ya terminó.
+    if ((await email.inputValue()) !== user.email) {
+      await email.fill(user.email);
+    }
+
     await this.page.getByTestId("login-submit").click();
     await this.page.getByTestId("user-menu").waitFor();
   }
@@ -21,6 +38,10 @@ export class LoginPage {
   async logout() {
     await this.page.getByTestId("user-menu").click();
     await this.page.getByTestId("user-menu-logout").click();
-    await this.page.getByRole("link", { name: "Ingresar" }).waitFor();
+    // "Ingresar" es un <Link> con nativeButton={false} (UserMenu.tsx) —
+    // Base UI le da role="button" para exponer semántica de botón, no
+    // role="link", aunque el tag real sea <a>. Confirmado con el snapshot
+    // real de Playwright, no asumido.
+    await this.page.getByRole("button", { name: "Ingresar" }).waitFor();
   }
 }

@@ -20,10 +20,17 @@ export default defineConfig({
   // Un test con .only olvidado no debe poder pasar silenciosamente en CI.
   forbidOnly: CI,
   retries: CI ? 2 : 0,
-  // 1 worker en CI: el seed de Supabase es compartido entre todos los
-  // specs de un mismo job — correr en paralelo ahí pisaría datos entre
-  // tests (ej. dos specs moviendo el mismo pedido del kanban a la vez).
-  workers: CI ? 1 : undefined,
+  // 1 worker SIEMPRE, no solo en CI (corregido en la Fase 6.5 — hallazgo
+  // del code review de la Fase 6.4): hay UN solo Supabase local, y buyer1/
+  // seller1 son las mismas filas mutables para TODOS los workers Y
+  // proyectos (navegadores). create_order_from_cart vacía cart_items y
+  // descuenta stock de verdad — dos specs (o dos navegadores del mismo
+  // spec) tocando a buyer1 en paralelo se pisarían entre sí (ej. uno ve el
+  // carrito que el otro acaba de vaciar). fullyParallel se deja en true
+  // porque no hace daño con 1 worker, y documenta la intención para el día
+  // que la suite crezca lo suficiente como para justificar aislar datos
+  // por worker (fuera de alcance de esta sesión).
+  workers: 1,
   reporter: CI
     ? [["github"], ["html", { outputFolder: "e2e/playwright-report", open: "never" }]]
     : [["html", { outputFolder: "e2e/playwright-report", open: "never" }], ["list"]],
