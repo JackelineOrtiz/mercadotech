@@ -29,7 +29,11 @@ export class SellerProductsPage {
     return this.page.getByTestId("seller-product-row").filter({ hasText: title });
   }
 
-  async publish(input: PublishProductInput) {
+  // Devuelve el id del producto recién creado, leído de la URL de
+  // redirección (VendedorPublicarPage navega a
+  // /vendedor/productos/{id}/editar en éxito) — mismo criterio "nunca
+  // adivinar el id" que CartPage.checkout()/OrdersPage.
+  async publish(input: PublishProductInput): Promise<string> {
     await this.gotoPublish();
     await this.page.getByTestId("product-form-title").fill(input.title);
     await this.page.getByTestId("product-form-description").fill(input.description);
@@ -49,5 +53,9 @@ export class SellerProductsPage {
     await this.page.getByTestId("product-form-images-input").setInputFiles(input.imagePath);
 
     await this.page.getByTestId("product-form-submit").click();
+    await this.page.waitForURL(/\/vendedor\/productos\/[0-9a-fA-F-]+\/editar$/);
+    const match = this.page.url().match(/\/vendedor\/productos\/([0-9a-fA-F-]+)\/editar$/);
+    if (!match) throw new Error(`No se pudo leer el id del producto de la URL: ${this.page.url()}`);
+    return match[1];
   }
 }

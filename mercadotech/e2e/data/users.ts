@@ -22,3 +22,18 @@ export const SELLER1: TestUser = {
   password: PASSWORD,
   displayName: "TecnoStore Perú",
 };
+
+// Agregados en la Fase 6.6: el único pedido 'pagado' del seed (c…003)
+// pertenece a seller2, comprado por buyer2 — no hay ningún 'pagado' de
+// seller1 (ver e2e/data/orders.ts). El flujo del kanban necesita ambos.
+export const BUYER2: TestUser = {
+  email: "buyer2@mercadotech.test",
+  password: PASSWORD,
+  displayName: "Jorge Luis Ramírez",
+};
+
+export const SELLER2: TestUser = {
+  email: "seller2@mercadotech.test",
+  password: PASSWORD,
+  displayName: "Gamer Zone Perú",
+};
