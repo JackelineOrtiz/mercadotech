@@ -4,24 +4,99 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+# Un push nuevo a la misma rama/PR cancela la corrida anterior en curso —
+# no tiene sentido esperar un resultado que ya quedó obsoleto.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  web:
-    name: Lint, type-check y build (mercadotech)
+  # Rápido, sin Docker: type-check + lint + unitarios + cobertura, y el
+  # type-check propio de mcp/ (paquete npm aparte, Sesión 5).
+  checks:
+    name: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: mercadotech
 
-    # Next.js necesita estas variables para el build (algunas páginas
-    # construyen el cliente de Supabase al prerenderizar). No son secretos
-    # reales — el build no llega a conectarse a la base, solo necesita que
-    # las variables existan con forma válida.
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          # Node 20, no 24: es la versión real que generó package-lock.json
+          # en este entorno (verificado con `node --version` antes de
+          # escribir este workflow) — mismo criterio que el pin de npm de
+          # abajo, gana lo que el entorno real usa, no un valor asumido.
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mercadotech/package-lock.json
+
+      # Pin de npm (decisión 10 de la spec): package-lock.json lo generó
+      # npm 10.8.2 en este entorno (verificado con `npm --version`, NO los
+      # "11.6.2" que la spec asumía — mismo principio que el resto de la
+      # sesión: gana el dato real). Una versión de npm distinta a la que
+      # generó el lockfile puede resolver dependencias OPCIONALES
+      # específicas de plataforma distinto al recalcular el árbol, y
+      # `npm ci` rechaza el lockfile con "Missing from lock file" aunque
+      # sea perfectamente válido para la versión que lo generó — pinnear
+      # la MISMA versión evita que se recalcule nada.
+      - name: Pinnear npm a la versión que generó el lockfile
+        run: npm install -g npm@10.8.2
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitarios + cobertura
+        run: npm run test:coverage
+
+      # mcp/tsconfig.json resuelve @/* -> ../* hacia services/, lib/ai/,
+      # que importan paquetes que viven en mercadotech/package.json, no en
+      # mercadotech/mcp/package.json — hay que instalar AMBOS antes del
+      # type-check de mcp/, o falla con "Cannot find module" (hallazgo
+      # real de la Fase 5.2 de este mismo proyecto).
+      - name: Instalar dependencias (mcp)
+        working-directory: mercadotech/mcp
+        run: npm ci
+
+      - name: Type-check del servidor MCP
+        working-directory: mercadotech/mcp
+        run: npm run type-check
+
+      - name: Subir cobertura como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: mercadotech/coverage
+          retention-days: 7
+
+  # Supabase local efímero + Playwright contra la app real (build de
+  # producción, decisión 12) — solo Chromium en CI, los 3 navegadores
+  # quedan para correr local antes de un push grande.
+  e2e:
+    name: e2e
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mercadotech
 
     steps:
       - name: Checkout
@@ -34,54 +109,66 @@ jobs:
           cache: "npm"
           cache-dependency-path: mercadotech/package-lock.json
 
+      - name: Pinnear npm a la versión que generó el lockfile
+        run: npm install -g npm@10.8.2
+
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Type-check
-        run: npm run type-check
-
-      - name: Build
-        run: npm run build
-
-  mcp:
-    name: Type-check del servidor MCP
-    runs-on: ubuntu-latest
-    # Sin defaults.run.working-directory acá: los pasos de instalar
-    # dependencias necesitan carpetas DISTINTAS (ver el paso de abajo), a
-    # diferencia del job "web".
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configurar Node
-        uses: actions/setup-node@v4
+      - name: Caché de navegadores de Playwright
+        uses: actions/cache@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: |
-            mercadotech/package-lock.json
-            mercadotech/mcp/package-lock.json
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('mercadotech/package-lock.json') }}
 
-      # mcp/tsconfig.json resuelve el alias @/* -> ../* hacia
-      # services/lib/ai/, que importan @supabase/supabase-js, @supabase/ssr
-      # y @huggingface/inference — paquetes que NO están en
-      # mercadotech/mcp/package.json (solo @modelcontextprotocol/sdk, zod y
-      # tsup), sino en mercadotech/package.json. En desarrollo esto resuelve
-      # solo porque mercadotech/node_modules ya existe en la máquina; en un
-      # runner de CI limpio hay que instalarlo explícitamente ANTES del
-      # type-check de mcp/, o falla con "Cannot find module".
-      - name: Instalar dependencias (mercadotech)
-        working-directory: mercadotech
-        run: npm ci
+      - name: Instalar Chromium (con dependencias del sistema)
+        run: npx playwright install --with-deps chromium
 
-      - name: Instalar dependencias (mcp)
-        working-directory: mercadotech/mcp
-        run: npm ci
+      - name: Instalar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
-      - name: Type-check
-        working-directory: mercadotech/mcp
-        run: npm run type-check
+      # ubuntu-latest ya trae Docker — supabase start lo usa directo.
+      - name: Levantar Supabase local
+        run: supabase start
+
+      - name: Reset (migraciones + seed)
+        run: supabase db reset
+
+      # Credenciales DINÁMICAS del stack efímero — NO son secretos
+      # (decisión 11): son las claves DEMO fijas que `supabase start`
+      # imprime para cualquier desarrollador en cualquier máquina (el
+      # mismo ANON_KEY/JWT_SECRET que trae .env.local desde el día uno de
+      # este proyecto), no protegen ningún dato real, y el contenedor que
+      # las usa se crea y se destruye dentro de este mismo job.
+      - name: Leer credenciales del Supabase local
+        id: supabase
+        run: |
+          STATUS=$(supabase status -o json)
+          echo "api_url=$(echo "$STATUS" | jq -r '.API_URL')" >> "$GITHUB_OUTPUT"
+          echo "anon_key=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> "$GITHUB_OUTPUT"
+
+      # NEXT_PUBLIC_SUPABASE_URL/ANON_KEY llegan también al build (decisión
+      # 12): playwright.config.ts hace `npm run build && npm run start` en
+      # CI (webServer), como proceso hijo de este mismo paso — hereda estas
+      # env sin nada extra. Sin token de Hugging Face (decisión 8: ningún
+      # E2E visita /asistente ni afirma nada generado por IA).
+      - name: E2E (Chromium)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ steps.supabase.outputs.api_url }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ steps.supabase.outputs.anon_key }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npx playwright test --project=chromium
+
+      - name: Subir reporte de Playwright (solo si falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: mercadotech/e2e/playwright-report
+          retention-days: 14
+
+      - name: Apagar Supabase
+        if: always()
+        run: supabase stop
