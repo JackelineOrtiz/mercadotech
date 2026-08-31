@@ -55,7 +55,16 @@ export function LoginForm({ onSubmit, loading = false, error }: LoginFormProps) 
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="login-password">Contraseña</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="login-password">Contraseña</Label>
+          <Link
+            href="/recuperar"
+            data-testid="login-forgot-password"
+            className="text-xs text-primary hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
         <Input
           id="login-password"
           data-testid="login-password"

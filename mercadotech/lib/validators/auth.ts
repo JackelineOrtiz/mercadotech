@@ -25,6 +25,41 @@ export function validateLogin(input: LoginInput): FieldErrors {
   return errors;
 }
 
+export interface RequestPasswordResetInput {
+  email: string;
+}
+
+export function validateRequestPasswordReset(input: RequestPasswordResetInput): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!input.email.trim()) {
+    errors.email = "Ingresa tu correo.";
+  } else if (!EMAIL_RE.test(input.email)) {
+    errors.email = "Correo inválido.";
+  }
+
+  return errors;
+}
+
+export interface NewPasswordInput {
+  password: string;
+  confirmPassword: string;
+}
+
+export function validateNewPassword(input: NewPasswordInput): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (input.password.length < 8) {
+    errors.password = "La contraseña debe tener al menos 8 caracteres.";
+  }
+
+  if (input.confirmPassword !== input.password) {
+    errors.confirmPassword = "Las contraseñas no coinciden.";
+  }
+
+  return errors;
+}
+
 export interface RegisterInput {
   displayName: string;
   email: string;

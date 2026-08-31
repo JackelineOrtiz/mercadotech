@@ -47,6 +47,39 @@ export async function logout(supabase: Client = createClient()) {
   if (error) throw error;
 }
 
+// Supabase NO revela si el correo existe (mismo comportamiento con éxito
+// o error "no encontrado" internamente) — la UI siempre debe mostrar el
+// mismo mensaje de confirmación, nunca "ese correo no existe" (evita que
+// alguien use este formulario para enumerar cuentas reales).
+export async function requestPasswordReset(
+  email: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) {
+    // Sin esto, un despliegue sin la variable mandaría el correo real
+    // igual, pero con un link roto ("undefined/actualizar-contrasena") —
+    // falla acá, antes de disparar el correo, en vez de silenciosamente.
+    throw new Error("NEXT_PUBLIC_SITE_URL no está configurada.");
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/actualizar-contrasena`,
+  });
+  if (error) throw error;
+}
+
+// Solo funciona con la sesión de recuperación que Supabase establece al
+// abrir el link del correo (@supabase/ssr detecta el token de la URL
+// automáticamente, detectSessionInUrl: true por defecto) — llamarlo sin
+// esa sesión falla con el error real de Supabase (sesión ausente).
+export async function updatePassword(
+  password: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 // Usuario de auth.users + su fila de profiles, en un solo viaje para
 // useAuth. Errores silenciados igual que antes de moverlo aquí (Fase 3.8:
 // useAuth llamaba a supabase directo desde el hook, violando la regla de

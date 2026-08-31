@@ -76,5 +76,27 @@ export function useAuth() {
     await authService.logout();
   }, []);
 
-  return { ...state, register, login, logout };
+  const requestPasswordReset = useCallback(async (email: string) => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      await authService.requestPasswordReset(email);
+      setState((s) => ({ ...s, loading: false }));
+    } catch (err) {
+      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      throw err;
+    }
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      await authService.updatePassword(password);
+      setState((s) => ({ ...s, loading: false }));
+    } catch (err) {
+      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      throw err;
+    }
+  }, []);
+
+  return { ...state, register, login, logout, requestPasswordReset, updatePassword };
 }
