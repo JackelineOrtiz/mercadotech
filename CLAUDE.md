@@ -6,16 +6,18 @@ Marketplace de productos tecnológicos con soporte por agentes de voz. Ver
 ## Estado del proyecto
 
 Sesión 1, Sesión 2 (Fases 2.1–2.7), Sesión 3 (Fases 3.0–3.8), Sesión 4
-(Fases 4.0–4.8) y Sesión 5 (Fases 5.0–5.6) completas y commiteadas —
-checkout transaccional, panel del vendedor con drag & drop, pipeline RAG
-(pgvector + búsqueda semántica + asistentes), y gobernanza (4 Skills en
-`.claude/skills/` + servidor MCP de solo lectura en `mcp/`). Sesión 6 en
-adelante: pendiente. Detalle fase por fase, decisiones y deuda técnica
-vigente → [`docs/BITACORA.md`](docs/BITACORA.md); checklist de
-responsive/a11y/estados de la Sesión 3 →
-[`docs/SESION3_CHECKLIST.md`](docs/SESION3_CHECKLIST.md); los 6 casos de
-prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md); el ciclo de
-revisión de gobernanza → [`docs/REVISION_S5.md`](docs/REVISION_S5.md).
+(Fases 4.0–4.8), Sesión 5 (Fases 5.0–5.6) y Sesión 6 (Fases 6.1–6.8)
+completas y commiteadas — checkout transaccional, panel del vendedor con
+drag & drop, pipeline RAG (pgvector + búsqueda semántica + asistentes),
+gobernanza (4 Skills en `.claude/skills/` + servidor MCP de solo lectura
+en `mcp/`), y red de pruebas (Vitest + Playwright + CI en GitHub Actions).
+Sesión 7 en adelante (performance, secretos, deploy — SIN CI, ya está):
+pendiente. Detalle fase por fase, decisiones y deuda técnica vigente →
+[`docs/BITACORA.md`](docs/BITACORA.md); checklist de responsive/a11y/
+estados de la Sesión 3 → [`docs/SESION3_CHECKLIST.md`](docs/SESION3_CHECKLIST.md);
+los 6 casos de prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md);
+el ciclo de revisión de gobernanza → [`docs/REVISION_S5.md`](docs/REVISION_S5.md);
+metodología y errores típicos de debugging → [`docs/DEBUGGING.md`](docs/DEBUGGING.md).
 
 ## Estructura del repositorio
 
@@ -29,8 +31,11 @@ revisión de gobernanza → [`docs/REVISION_S5.md`](docs/REVISION_S5.md).
 - `.claude/skills/`: 4 Skills de gobernanza — `mercadotech-architecture-
   enforcer` (gate previo a crear/mover archivos), `mercadotech-code-
   reviewer` (informe /10 después de escribir), `mercadotech-automatic-
-  validator` (veredicto binario al cerrar una tarea), `mercadotech-tech-
-  lead` (scorecard de diseño). Las 4 REPORTAN, nunca editan código.
+  validator` (veredicto binario al cerrar una tarea — corre `npm run
+  test` siempre, y `test:e2e` si `supabase status` está arriba),
+  `mercadotech-tech-lead` (scorecard de diseño). Las 4 REPORTAN, nunca
+  editan código. Norma del ciclo al cerrar cualquier feature: reviewer →
+  correcciones → validator.
 
 ## Principio rector
 
@@ -98,6 +103,18 @@ que `scripts/`: `server-only` revienta bajo Node/tsx puro.
   `orders` deja que el vendedor ponga cualquier estado en un pedido con
   ítems suyos, sin validar secuencia ni excluir "cancelado".
 
+## Convenciones aprendidas en la Sesión 6
+
+- Tests unitarios junto al archivo que prueban (`cart.service.ts` ↔
+  `cart.service.test.ts`), E2E en `e2e/`. Los tests unitarios inyectan el
+  cliente Supabase por parámetro — jamás `vi.mock` de `lib/supabase/*`;
+  `lib/ai/*` sí se mockea por módulo (única excepción, no tiene cliente
+  inyectable). Cada test se ancla al comportamiento REAL del código (leer
+  el archivo antes de escribir su test), nunca a lo que la spec asume.
+- `data-testid` en kebab-case con prefijo de dominio (`cart-checkout`,
+  `kanban-column-pagado`) — únicos atributos que un cambio de test puede
+  agregar a un componente existente.
+
 ## Comandos
 
 Todos se corren desde `mercadotech/` (el proyecto Next.js), no desde la raíz
@@ -111,6 +128,9 @@ npm run build        # build de producción
 npm run start        # sirve el build de producción
 npm run lint         # ESLint
 npm run type-check   # tsc --noEmit
+npm run test         # Vitest (lógica pura + services, sin red)
+npm run test:coverage # ídem + reporte de cobertura en coverage/
+npm run test:e2e     # Playwright — requiere `supabase db reset` antes
 npm run db:types     # regenera types/database.ts desde la BD local
 npx tsx scripts/index-all.ts   # indexa productos activos + artículos
                                 # publicados en knowledge_embeddings
@@ -133,6 +153,17 @@ supabase stop        # apaga los contenedores
 `supabase start` imprime las credenciales locales (`API_URL`, `ANON_KEY`,
 `SERVICE_ROLE_KEY`, etc.) — son las que van en `.env.local` para desarrollar
 contra la base local en vez del proyecto de Supabase en la nube.
+
+### CI (GitHub Actions, Sesión 6)
+
+`.github/workflows/ci.yml` corre en cada push/PR: job `checks` (lint +
+type-check + `test:coverage` + type-check de `mcp/`, sin Docker) y job
+`e2e` (Supabase efímero + Playwright en Chromium). Cero secretos. El
+campo `packageManager` de `package.json` está pineado a la versión REAL
+de npm que generó `package-lock.json` en este entorno (`npm@10.8.2`) —
+no se toca a la ligera: cambiarlo sin regenerar el lockfile con esa misma
+versión reproduce el error "Missing from lock file" en CI (ver
+`docs/DEBUGGING.md`).
 
 ### Servidor MCP (`mcp/`, Sesión 5)
 

@@ -8,6 +8,244 @@ salvo las secciones marcadas explícitamente.
 
 ---
 
+## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
+
+Red de seguridad completa: Vitest para lógica pura y `services/` (184
+tests, cliente Supabase siempre inyectado — nunca `vi.mock` de
+`lib/supabase/*`), Playwright para los dos flujos críticos (comprador y
+vendedor, con el drag del kanban por TECLADO), y un pipeline de GitHub
+Actions (`checks` + `e2e`) que corre todo en cada push/PR sin ningún
+secreto. Absorbió el pipeline de CI que originalmente era la Fase 7.1
+(decisión del docente) — la Sesión 7 conserva solo performance, secretos y
+deploy.
+
+**Desviación de rango real, antes del Prompt 0:** por un pedido aparte del
+usuario ("ayudame con el CI"), se construyó un workflow ad-hoc (commits
+`b7c3c96`, `facde21`: jobs `web`/`mcp` con lint/type-check/build) ANTES de
+empezar formalmente la Sesión 6. Quedó completamente reemplazado por el
+pipeline real de la Fase 6.7 (`checks`/`e2e`) — se documenta acá por
+integridad del `git log`, no forma parte de los entregables de la sesión.
+
+### Prompt 0 — Conexión a GitHub e instalación de herramientas de testing (commit `c38b435`)
+
+**Construido:** remoto de GitHub conectado (repo privado), primer push;
+`@playwright/test@^1.62.1` + navegadores (chromium/firefox/webkit)
+instalados; `@vitest/coverage-v8@^4.1.11`, `vitest@^4.1.11`.
+
+**Verificado real:** estado de partida confirmado contra el repo real
+(no asumido) — 15 `services/` con cliente inyectable, cero `data-testid`
+en todo el repo, `lib/utils.ts` exporta solo `cn`/`formatPrice`.
+
+### Fase 6.1 — Infraestructura de Vitest (commit `3729520`)
+
+**Construido:** `vitest.config.mts` (extensión `.mts`, no `.ts`, para que
+Vitest no advierta "ESM cargado como CommonJS" sin tocar el `package.json`
+de la raíz; `import.meta.dirname` en vez de `__dirname`, que ESM no
+soporta), alias `@/` igual que `tsconfig.json`, `environment: "node"` (sin
+jsdom/Testing Library — no se testean componentes, decisión 6 de la
+spec), cobertura v8 con `include: ["lib/**", "services/**"]`. Scripts
+`test`/`test:watch`/`test:coverage`.
+
+**Hallazgo real:** ESLint no ignoraba `coverage/` (el reporte HTML
+generado) — mismo patrón que `mcp/dist/` en la Sesión 5: gitignorado no
+es lo mismo que ignorado por ESLint. Agregado a `eslint.config.mjs`.
+
+### Fase 6.2 — Tests de lógica pura (commit `46f490c`)
+
+**Construido:** `lib/validators/{auth,product}.test.ts`, `lib/utils.test.ts`,
+`lib/ai/{context-builder,prompts}.test.ts` — 56 tests, 100% de ramas en
+los 5 archivos (confirmado por el reporte HTML de cobertura; el reporte de
+texto por defecto OCULTA los archivos con 100%, no es un bug).
+
+**Desviaciones ancladas al código real, no a la spec:** `validateLogin`/
+`validateRegister` devuelven `FieldErrors` (`Record<string,string>`)
+directo, no un objeto con `.ok`; `isUserRole`/`REGISTRABLE_ROLES` no
+existen en el repo (grepeado); `lib/validators/auth.ts` no tiene
+constantes exportadas para el mínimo de contraseña/nombre — están
+hardcodeadas inline, a diferencia de `product.ts`.
+
+**Verificado real:** el `U+00A0` (espacio de no ruptura) entre "S/" y el
+monto de `formatPrice`, y la resolución de conflictos de `cn`
+(tailwind-merge), verificados con `node -e` antes de escribir la
+aserción — no asumidos.
+
+### Fase 6.3 — Tests de services con Supabase mockeado (commit `cbadf23`)
+
+**Construido:** `services/test-utils/supabase-mock.ts` — mock encadenable
+por `Proxy` (soporta cualquier método de PostgREST sin enumerarlos), con
+introspección (`calls`/`rpcCalls`/`storageCalls`/`authCalls`,
+`inserts`/`updates`/`upserts`/`deletes`); 16 archivos
+`services/*.service.test.ts` (184 tests en total contando 6.1-6.3).
+`vi.mock` de `lib/ai/*` SOLO en `embedding`/`vector-search`/`chat.service.test.ts`
+(única excepción sancionada — esos 3 services no tienen cliente
+inyectable); el resto de `lib/ai/*` se deja real (funciones puras).
+Refactor mecánico: `canMove` exportado en `useSellerOrders.ts` para
+testearlo sin React.
+
+**2 hallazgos reales, documentados con `// comportamiento actual,
+revisar:` (no corregidos en esta fase):** `cart.service.ts`'s
+`mapCartItem` no reenvía el cliente inyectado a `getPublicUrl` (a
+diferencia de `mapProduct`, corregido en la Fase 4.7) — confirmado que
+revienta con "WebSocket not found" fuera del navegador. `auth.service.ts`'s
+`getSession` silencia el error de leer el profile (ya documentado en su
+propio comentario).
+
+**Verificado real:** `services/` en 99.2% líneas (exigido ≥80%), suite
+verde con `supabase stop` (sin red).
+
+### Fase 6.4 — Infraestructura de Playwright (commit `d7a7e5c`)
+
+**Construido:** `playwright.config.ts` (webServer `build && start` en CI,
+reutiliza `npm run dev` en local; retries 2/0; reporter `github`+`html`);
+7 Page Objects (`e2e/pages/`); `e2e/fixtures/test.ts` (login vía Page
+Object); `e2e/data/users.ts`; smoke `home.spec.ts`. 30 `data-testid`
+nuevos en 16 componentes existentes — SOLO el atributo, cero lógica.
+
+**Hallazgo real:** `react-hooks/rules-of-hooks` daba falso positivo sobre
+el parámetro `use` de un fixture de Playwright (coincide con la
+heurística de nombre de un hook de React) — `e2e/**` excluido de ESLint.
+
+**Verificado real:** `npm run test:e2e -- home.spec.ts` verde en los 3
+navegadores contra Supabase local real.
+
+### Fase 6.5 — E2E: flujo comprador (commit `23f5390`)
+
+**Construido:** `buyer-flow.spec.ts` (8 pasos con `test.step`) y
+`buyer-negative.spec.ts` (3 casos), verificados contra datos reales del
+seed (el producto con stock 0 real es `b…008`, no `b…06` como asumía el
+prompt).
+
+**Bug de producción real, corregido con autorización explícita del
+usuario:** `hooks/useCart.ts` era un hook "de instancia" — Navbar,
+`/producto/[id]` y `/carrito` creaban cada uno su propio estado aislado
+(a diferencia de `useAuth`, que solo "parece" compartir estado porque
+`@supabase/ssr` memoiza un único cliente) — agregar al carrito nunca
+actualizaba el contador del Navbar. Reemplazado por `hooks/useCart.tsx`
+con `CartProvider` + Context, una sola instancia real. 2 hallazgos más,
+solo en la infraestructura de test: el selector de "Ingresar" (es
+`role="button"`, no `"link"`, por `nativeButton={false}`) y una carrera de
+hidratación solo-WebKit en el login (fill de un input controlado antes de
+que React termine de hidratar).
+
+**Verificado real:** 15/15 (5 specs × 3 navegadores), dos corridas
+independientes; demostración de reporte fallido con screenshot real.
+
+### Fase 6.6 — E2E: flujo vendedor (commit `c0ed568`)
+
+**Construido:** `seller-flow.spec.ts` (publicar con imagen, mover
+`pagado`→`enviado` por teclado, persistencia tras `reload`, verificado
+desde la cuenta del comprador) y `seller-negative.spec.ts`. Dato real
+verificado contra el seed (no asumido): el único pedido `pagado` es de
+**seller2/buyer2**, no seller1 — el prompt lo advertía correctamente.
+
+**Verificado real:** 8/8 en chromium contra Supabase local reseteado;
+reporte HTML confirmado visualmente (columna "Enviado" en 1, "Pagado" en
+0).
+
+### Fase 6.7 — Pipeline de CI en GitHub Actions (commits `e23de97`, `c7132b5`)
+
+**Construido:** `.github/workflows/ci.yml` con jobs `checks` (type-check →
+lint → `test:coverage` → type-check de `mcp/` → artefacto de cobertura,
+~46-49s) y `e2e` (Chromium + Supabase efímero + credenciales dinámicas vía
+`supabase status -o json` + `jq` → `playwright test --project=chromium`,
+~4 min); `packageManager: "npm@10.8.2"`.
+
+**Desviación real de la spec (mismo principio "gana el código real"):** la
+spec pedía pinnear `npm@11.6.2` y Node 24 — la versión que de verdad
+generó `package-lock.json` en este entorno es `npm@10.8.2` sobre Node
+`20.20.2` (verificado con `npm --version`/`node --version` antes de
+escribir el pin, no asumido).
+
+**Hallazgo real solo reproducible en GitHub Actions:** el primer push
+(run `33441154880`) tuvo `e2e` en rojo — el drag del kanban por teclado
+pasaba siempre en local (dev y build de producción) pero fallaba en los 3
+intentos del runner real. Diagnosticado descargando el trace real
+(`gh run download`), no asumido: las pulsaciones llegaban, pero la
+medición propia de `boundingBox()` nunca detectaba el cruce de columna
+ahí. Fix: `SellerKanbanPage` ahora poll­ea la región
+`role="status" aria-live="assertive"` que `@dnd-kit/accessibility` ya
+expone con sus propios anuncios de colisión — la fuente de verdad de la
+librería, no una reconstrucción de su geometría.
+
+**Verificado real:** push a `main` → `checks`+`e2e` verdes (run
+`33442439936`); PR #1 (`ci-smoke`) verde con un cambio trivial → **rojo**
+al romper un test a propósito (`checks` falló, `e2e` se saltó) →
+revertido → verde de nuevo → cerrado sin merge; artefacto de cobertura
+descargado y confirmado real (644KB HTML).
+
+### Fase 6.8 — Debugging y actualización de los gates (commit `7d9bd84`)
+
+**Construido:** `docs/DEBUGGING.md` (flujo síntoma→reproducir→logs→
+hipótesis→fix→test, guía de contexto para pedirle debugging a Claude,
+tabla de errores típicos con mensaje literal); `mercadotech-automatic-validator`
+actualizada quirúrgicamente — `npm run test` pasa de N/A a OBLIGATORIO,
+nuevo ítem `npm run test:e2e` condicional a `supabase status`.
+
+**Verificado real, con evidencia empírica extra:** el mensaje de RLS
+citado en `DEBUGGING.md` (`new row violates row-level security policy for
+table "orders"`) se disparó de verdad contra el Postgres local (`docker
+exec` al contenedor), no se asumió por ser "un mensaje típico de
+Postgres". Demostración del gate: test roto → `VALIDACIÓN FALLIDA`
+citando `lib/utils.test.ts` → revertido (`git checkout --`, byte-exacto)
+→ `VALIDACIÓN APROBADA`.
+
+---
+
+## Cierre de Sesión 6
+
+### Criterios de aceptación
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| `npm run test` verde con Docker apagado, cobertura objetivo | ✅ | Fase 6.3; `services/` 99.2% líneas, validadores/`context-builder` 100% ramas |
+| `npm run test:e2e` verde contra Supabase local con el seed | ✅ | Fases 6.4-6.6; 8/8 en chromium, 15/15 en 3 navegadores para el flujo comprador |
+| Kanban drag & drop cubierto por E2E vía teclado | ✅ | Fase 6.6/6.7 — con el hallazgo real de CI corregido |
+| Push y PR de prueba muestran ambos jobs en verde; un test roto los pone en rojo | ✅ | Fase 6.7, runs `33442439936` (verde) y PR #1 (rojo→verde) |
+| El validator ejecuta los tests como parte del gate | ✅ | Fase 6.8, demostrado con ambas salidas reales |
+| `npm run lint`, `type-check`, `build` pasan | ✅ | Cada fase, última vez en 6.8 |
+
+### Entregables de la spec × estado
+
+| Entregable | Estado | Evidencia |
+|---|---|---|
+| Infraestructura Vitest + Playwright (`package.json`) | ✅ | Fases 6.1, 6.4 |
+| Suite unitaria: lógica pura + services, cobertura objetivo | ✅ | Fases 6.2-6.3, 184 tests |
+| 4 specs E2E (comprador/vendedor + negativos) + Page Objects + `data-testid` | ✅ | Fases 6.4-6.6, 8 tests E2E, 30 `data-testid` |
+| `.github/workflows/ci.yml` con `checks`+`e2e` verdes + `packageManager` | ✅ | Fase 6.7 |
+| `docs/DEBUGGING.md` + validator actualizado + norma en `CLAUDE.md` | ✅ | Fase 6.8 + este cierre |
+| Bitácora y `CLAUDE.md` actualizados | ✅ | Este cierre |
+
+### Deuda técnica y limitaciones conocidas (vigentes en el código)
+
+- **`cart.service.ts`'s `mapCartItem` no reenvía el cliente inyectado a
+  `getPublicUrl`** (Fase 6.3) — inofensivo hoy (solo se llama desde el
+  navegador), replica el bug ya corregido en `product.service.ts` (Fase
+  4.7) si algún día se llama con el cliente admin.
+- **`auth.service.ts`'s `getSession` silencia el error de leer el
+  profile** — ya documentado en su propio comentario, ahora con test que
+  lo ancla (Fase 6.3).
+- **`SellerKanbanPage.pressUntilOverColumn` depende de la región
+  `aria-live` que expone `@dnd-kit/accessibility`** — acoplamiento
+  deliberado a un contrato de accesibilidad público de la librería, no a
+  un detalle interno (se descartó explícitamente un id autogenerado por
+  ser más frágil); documentado en el propio archivo.
+- Toda la deuda técnica de las Sesiones 3-5 sigue vigente sin cambios (ver
+  esas secciones).
+
+### Pendientes para la Sesión 7 y heredados
+
+- **Sesión 7** (performance, secretos y deploy, según el mapa de
+  `README.md`): sin leer todavía. Ya NO incluye CI (absorbido acá).
+- **Branch protection** (checks obligatorios para mergear) — declarado
+  explícitamente fuera de alcance de la Sesión 6, corresponde a la 7.
+- **Tests de componentes React y del servidor MCP** — fuera de alcance
+  por decisión de la spec (decisión 6); MCP solo tiene su `type-check` en
+  CI.
+- **Heredado de sesiones 1-5**: sin pendientes nuevos más allá de los ya
+  registrados en cierres anteriores.
+
+---
+
 ## Sesión 5 — Custom Skills y Protocolo MCP (2026-08-28)
 
 Cuatro Skills de gobernanza (`.claude/skills/`) que hacen cumplir la
