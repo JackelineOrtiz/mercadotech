@@ -22,6 +22,16 @@ type CartItemQueryRow = {
 const CART_SELECT =
   "id, product_id, quantity, products(id, title, price, stock, product_images(image_path, position))";
 
+// comportamiento actual, revisar (hallazgo de la Fase 6.3, ver
+// cart.service.test.ts): a diferencia de mapProduct en product.service.ts,
+// esta función NO recibe ni propaga el cliente Supabase inyectado a
+// getPublicUrl — cada imageUrl se resuelve con un cliente de navegador
+// nuevo por defecto (createClient() sin argumentos), nunca con el que
+// recibió getItems. Funciona hoy porque getItems solo se llama desde el
+// navegador (el hook del carrito); si algún día se llama desde un Route
+// Handler o script con el cliente admin, revienta igual que el bug ya
+// corregido en product.service.ts (Fase 4.7: "Node.js detected but native
+// WebSocket not found") — confirmado empíricamente en el test.
 function mapCartItem(row: CartItemQueryRow): CartItem {
   if (!row.products) {
     return { id: row.id, productId: row.product_id, quantity: row.quantity, product: null };

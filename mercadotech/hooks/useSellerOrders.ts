@@ -20,7 +20,11 @@ import type { SellerOrder } from "@/types/order";
 //     orders_update_seller_advance_or_buyer_cancel no restringe el destino
 //     para su rama), así que esta es la única de las tres donde el hook es
 //     la única barrera real, no una capa redundante sobre RLS.
-function canMove(from: OrderStatus, to: OrderStatus): boolean {
+// export agregado en la Fase 6.3 (Sesión 6, decisión 4 de la spec):
+// refactor MECÁNICO — el helper ya vivía a nivel de módulo, solo se
+// expone para poder testearlo directo, sin React (hooks/useSellerOrders.test.ts).
+// Cero cambios de lógica.
+export function canMove(from: OrderStatus, to: OrderStatus): boolean {
   const fromIndex = ORDER_STATUS_FLOW.indexOf(from);
   const toIndex = ORDER_STATUS_FLOW.indexOf(to);
   return fromIndex !== -1 && toIndex === fromIndex + 1;
