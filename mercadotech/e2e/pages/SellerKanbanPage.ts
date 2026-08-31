@@ -37,52 +37,56 @@ export class SellerKanbanPage {
   // la Sesión 3): solo hace falta más de una pulsación para cruzar una
   // columna.
   //
-  // Hallazgo real #2: no basta con que el CENTRO de la tarjeta cruce al
-  // lado de la columna destino — DndContext usa rectIntersection (default
-  // de @dnd-kit/core, sin collisionDetection propio en OrdersKanban.tsx),
-  // que compara ÁREA de solapamiento, no un punto. Con el centro apenas
-  // cruzado, la mayor parte de la tarjeta seguía en la columna de origen,
-  // así que rectIntersection igual elegía esa como destino (confirmado
-  // empíricamente: el drop terminaba en la columna de partida). Se espera
-  // a que la tarjeta esté COMPLETAMENTE contenida en la columna destino
-  // (su borde de avance ya cruzó el borde correspondiente de la columna
-  // destino) — ahí el solapamiento es total, sin ambigüedad posible.
+  // Hallazgo real #2 (primera versión de este método, ver historial): medir
+  // boundingBox() propio y esperar contención completa funcionaba en local
+  // (macOS, Chromium de escritorio) pero fallaba consistentemente en el
+  // runner de GitHub Actions (ubuntu-latest, misma versión de Playwright/
+  // Chromium) — reproducido con supabase/setup-cli en el mismo job y
+  // confirmado con el trace real descargado del run fallido: las 60
+  // pulsaciones de ArrowRight SÍ se dispararon, pero la tarjeta nunca
+  // cumplía mi condición de "contención completa" ahí. En vez de seguir
+  // ajustando geometría a ciegas por entorno, se usa la propia fuente de
+  // verdad de dnd-kit: @dnd-kit/accessibility renderiza una región
+  // role="status" aria-live="assertive" (parte de su contrato PÚBLICO de
+  // accesibilidad, vía Announcements — a diferencia de un id autogenerado
+  // como "DndLiveRegion-0", que es un detalle interno) que anuncia
+  // "...was moved over droppable area {id}." cada vez que SU PROPIA
+  // colisión (rectIntersection) cambia de droppable — pollear ese texto es
+  // exactamente lo que dnd-kit decidió, sin reconstruir su geometría ni
+  // depender de cómo cada entorno de CI renderiza/mide. No colisiona con
+  // la región de sonner (Toaster), que usa aria-live="polite", no
+  // "assertive" — verificado en node_modules/sonner antes de confiar en
+  // el selector.
   private async pressUntilOverColumn(
     orderId: string,
     toStatus: OrderStatus,
     key: "ArrowRight" | "ArrowLeft",
   ) {
     const card = this.card(orderId);
-    const targetColumn = this.column(toStatus);
+    const liveRegion = this.page.locator('[role="status"][aria-live="assertive"]');
     await card.focus();
     await this.page.keyboard.press("Space");
 
-    const MAX_PRESSES = 60; // ~60 × 25px = 1500px, de sobra para cruzar cualquier columna real
+    const MAX_PRESSES = 60; // ~60 × 25px (default de dnd-kit) = 1500px, de sobra para cruzar cualquier columna real
     let reached = false;
     for (let i = 0; i < MAX_PRESSES; i++) {
-      const [cardBox, targetBox] = await Promise.all([card.boundingBox(), targetColumn.boundingBox()]);
-      if (cardBox && targetBox) {
-        const fullyContained =
-          key === "ArrowRight"
-            ? cardBox.x >= targetBox.x
-            : cardBox.x + cardBox.width <= targetBox.x + targetBox.width;
-        if (fullyContained) {
-          reached = true;
-          break;
-        }
+      const announcement = (await liveRegion.textContent().catch(() => null)) ?? "";
+      if (announcement.includes(`droppable area ${toStatus}`)) {
+        reached = true;
+        break;
       }
       await this.page.keyboard.press(key);
     }
 
     // Code review de la Fase 6.6: sin esto, agotar MAX_PRESSES soltaba la
-    // tarjeta donde fuera igual, en silencio — un fallo futuro (ej. un
-    // cambio de layout que agrande las columnas) se habría visto como un
-    // toBeVisible() genérico más abajo en el spec, sin señalar la causa
-    // real. Explícito acá para que el error apunte al lugar correcto.
+    // tarjeta donde fuera igual, en silencio — un fallo futuro se habría
+    // visto como un toBeVisible() genérico más abajo en el spec, sin
+    // señalar la causa real. Explícito acá para que el error apunte al
+    // lugar correcto.
     if (!reached) {
       await this.page.keyboard.press("Escape"); // cancela el drag, no lo suelta a ciegas
       throw new Error(
-        `El drag por teclado de la tarjeta ${orderId} no alcanzó la columna "${toStatus}" tras ${MAX_PRESSES} pulsaciones de ${key}.`,
+        `El drag por teclado de la tarjeta ${orderId} no alcanzó la columna "${toStatus}" tras ${MAX_PRESSES} pulsaciones de ${key} (según el anuncio aria-live de dnd-kit).`,
       );
     }
 
