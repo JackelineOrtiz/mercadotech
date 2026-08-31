@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+// ci-smoke (Fase 6.7): cambio trivial de comentario para abrir el PR de
+// prueba del pipeline — no toca lógica.
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
