@@ -33,6 +33,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         render={
           <button
             type="button"
+            data-testid="user-menu"
             aria-label="Menú de usuario"
             className="rounded-full focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
@@ -55,7 +56,9 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
           />
         ) : null}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onLogout}>Cerrar sesión</DropdownMenuItem>
+        <DropdownMenuItem data-testid="user-menu-logout" onClick={onLogout}>
+          Cerrar sesión
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

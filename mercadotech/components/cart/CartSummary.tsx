@@ -14,12 +14,12 @@ export function CartSummary({ subtotal, loading = false, onCheckout }: CartSumma
     <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Subtotal</span>
-        <Price value={subtotal} size="lg" />
+        <Price value={subtotal} size="lg" testId="cart-subtotal" />
       </div>
       <p className="text-xs text-muted-foreground">
         Pago simulado para el laboratorio — no se realiza ningún cobro.
       </p>
-      <Button onClick={onCheckout} disabled={loading}>
+      <Button data-testid="cart-checkout" onClick={onCheckout} disabled={loading}>
         {loading ? "Procesando…" : "Finalizar compra"}
       </Button>
     </div>

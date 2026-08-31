@@ -16,6 +16,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/producto/${product.id}`}
+      data-testid="product-card"
       className="group flex flex-col overflow-hidden rounded-lg border border-border transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-square bg-muted">

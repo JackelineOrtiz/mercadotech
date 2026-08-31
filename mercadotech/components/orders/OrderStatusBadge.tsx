@@ -7,5 +7,9 @@ export interface OrderStatusBadgeProps {
 }
 
 export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
-  return <Badge variant={ORDER_STATUS_BADGE_VARIANT[status]}>{ORDER_STATUS_LABELS[status]}</Badge>;
+  return (
+    <Badge data-testid="order-status" variant={ORDER_STATUS_BADGE_VARIANT[status]}>
+      {ORDER_STATUS_LABELS[status]}
+    </Badge>
+  );
 }

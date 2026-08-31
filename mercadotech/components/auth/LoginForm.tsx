@@ -42,6 +42,7 @@ export function LoginForm({ onSubmit, loading = false, error }: LoginFormProps) 
         <Label htmlFor="login-email">Correo electrónico</Label>
         <Input
           id="login-email"
+          data-testid="login-email"
           type="email"
           autoComplete="email"
           value={values.email}
@@ -57,6 +58,7 @@ export function LoginForm({ onSubmit, loading = false, error }: LoginFormProps) 
         <Label htmlFor="login-password">Contraseña</Label>
         <Input
           id="login-password"
+          data-testid="login-password"
           type="password"
           autoComplete="current-password"
           value={values.password}
@@ -74,7 +76,7 @@ export function LoginForm({ onSubmit, loading = false, error }: LoginFormProps) 
         </p>
       ) : null}
 
-      <Button type="submit" disabled={loading}>
+      <Button type="submit" data-testid="login-submit" disabled={loading}>
         {loading ? "Ingresando…" : "Ingresar"}
       </Button>
 

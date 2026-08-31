@@ -58,6 +58,7 @@ export function BuyBox({
           </label>
           <select
             id="buybox-qty"
+            data-testid="buybox-quantity"
             value={quantity}
             onChange={(e) => setQuantity(Number(e.target.value))}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -72,17 +73,25 @@ export function BuyBox({
       ) : !hasSession ? (
         <button
           type="button"
+          data-testid="buybox-disabled-reason"
           onClick={onRequireLogin}
           className="text-left text-sm font-medium text-primary underline-offset-4 hover:underline"
         >
           {disabledReason}
         </button>
       ) : (
-        <p className="text-sm font-medium text-destructive">{disabledReason}</p>
+        <p data-testid="buybox-disabled-reason" className="text-sm font-medium text-destructive">
+          {disabledReason}
+        </p>
       )}
 
       <div className="flex gap-2">
-        <Button className="flex-1" disabled={!canBuy} onClick={() => onAddToCart(quantity)}>
+        <Button
+          className="flex-1"
+          data-testid="buybox-add-to-cart"
+          disabled={!canBuy}
+          onClick={() => onAddToCart(quantity)}
+        >
           Agregar al carrito
         </Button>
         <Button

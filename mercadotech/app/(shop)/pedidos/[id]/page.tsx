@@ -57,14 +57,14 @@ export default function PedidoDetallePage() {
 
       <div className="flex items-center justify-between border-t border-border pt-4">
         <span className="font-medium">Total</span>
-        <Price value={order.total} size="lg" />
+        <Price value={order.total} size="lg" testId="order-total" />
       </div>
 
       {order.status === "pendiente" ? (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
-              <Button variant="outline" className="self-start">
+              <Button variant="outline" className="self-start" data-testid="order-cancel">
                 Cancelar pedido
               </Button>
             }

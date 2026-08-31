@@ -18,7 +18,7 @@ export interface OrderItemsTableProps {
 // título desde entonces).
 export function OrderItemsTable({ items }: OrderItemsTableProps) {
   return (
-    <Table>
+    <Table data-testid="order-items-table">
       <TableHeader>
         <TableRow>
           <TableHead>Producto</TableHead>

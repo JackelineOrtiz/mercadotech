@@ -11,6 +11,7 @@ export function OrderCard({ order }: OrderCardProps) {
   return (
     <Link
       href={`/pedidos/${order.id}`}
+      data-testid="order-card"
       className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 hover:bg-muted/50"
     >
       <div className="flex flex-col gap-1">

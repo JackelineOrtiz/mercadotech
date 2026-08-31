@@ -21,7 +21,7 @@ export function ProductGrid({
 }: ProductGridProps) {
   if (loading) {
     return (
-      <div className={GRID_CLASS} aria-busy="true" aria-live="polite">
+      <div className={GRID_CLASS} data-testid="product-grid" aria-busy="true" aria-live="polite">
         {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
           <ProductCardSkeleton key={i} />
         ))}
@@ -35,7 +35,7 @@ export function ProductGrid({
   }
 
   return (
-    <div className={GRID_CLASS}>
+    <div className={GRID_CLASS} data-testid="product-grid">
       {items.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}

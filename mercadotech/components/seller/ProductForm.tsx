@@ -69,6 +69,7 @@ export function ProductForm({
         <Label htmlFor="title">Título</Label>
         <Input
           id="title"
+          data-testid="product-form-title"
           value={value.title}
           onChange={(e) => onChange("title", e.target.value)}
           aria-invalid={!!errors.title}
@@ -80,6 +81,7 @@ export function ProductForm({
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
+          data-testid="product-form-description"
           value={value.description}
           onChange={(e) => onChange("description", e.target.value)}
         />
@@ -90,6 +92,7 @@ export function ProductForm({
           <Label htmlFor="brand">Marca</Label>
           <Input
             id="brand"
+            data-testid="product-form-brand"
             value={value.brand}
             onChange={(e) => onChange("brand", e.target.value)}
           />
@@ -100,7 +103,7 @@ export function ProductForm({
             value={value.condition}
             onValueChange={(v) => onChange("condition", v as ProductCondition)}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" data-testid="product-form-condition">
               <SelectValue>
                 {(v: ProductCondition | null) => (v ? CONDITION_LABELS[v] : "Elige")}
               </SelectValue>
@@ -121,6 +124,7 @@ export function ProductForm({
           <Label htmlFor="price">Precio (S/)</Label>
           <Input
             id="price"
+            data-testid="product-form-price"
             type="number"
             min={0}
             step="0.01"
@@ -134,6 +138,7 @@ export function ProductForm({
           <Label htmlFor="stock">Stock</Label>
           <Input
             id="stock"
+            data-testid="product-form-stock"
             type="number"
             min={0}
             step="1"
@@ -149,7 +154,7 @@ export function ProductForm({
             value={value.categoryId}
             onValueChange={(v) => onChange("categoryId", (v as string) ?? "")}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" data-testid="product-form-category">
               <SelectValue>
                 {(v: string | null) => categories.find((c) => c.id === v)?.name ?? "Elige"}
               </SelectValue>
@@ -179,7 +184,12 @@ export function ProductForm({
         {errors.images ? <p className="text-sm text-destructive">{errors.images}</p> : null}
       </div>
 
-      <Button type="submit" disabled={submitting} className="self-start">
+      <Button
+        type="submit"
+        data-testid="product-form-submit"
+        disabled={submitting}
+        className="self-start"
+      >
         {submitting ? "Guardando…" : submitLabel}
       </Button>
     </form>

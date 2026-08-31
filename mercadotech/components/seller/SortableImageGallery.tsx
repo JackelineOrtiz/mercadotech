@@ -157,6 +157,7 @@ export function SortableImageGallery({
       <input
         ref={inputRef}
         type="file"
+        data-testid="product-form-images-input"
         accept="image/jpeg,image/png,image/webp"
         multiple
         className="sr-only"

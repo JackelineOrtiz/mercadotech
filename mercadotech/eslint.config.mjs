@@ -28,6 +28,14 @@ const eslintConfig = [
       // Gitignorado, pero ESLint no respeta .gitignore solo: hallazgo
       // real al correr npm run lint tras el primer test:coverage.
       "coverage/**",
+      // e2e/ (Sesión 6, Fase 6.4) es código de Playwright, no de React —
+      // hallazgo real: next/core-web-vitals aplica react-hooks/rules-of-
+      // hooks al parámetro `use` de un fixture de Playwright
+      // (e2e/fixtures/test.ts) porque el nombre coincide con la
+      // heurística de un hook de React, aunque no tiene nada que ver.
+      "e2e/**",
+      // e2e/playwright-report y e2e/test-results también quedan afuera
+      // (gitignorados, igual que coverage/) pero ya caen dentro de e2e/**.
     ],
   },
 ];

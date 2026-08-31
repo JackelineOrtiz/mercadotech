@@ -37,6 +37,7 @@ function Column({ status, orders }: { status: OrderStatus; orders: SellerOrder[]
       </h2>
       <div
         ref={setNodeRef}
+        data-testid={`kanban-column-${status}`}
         className={cn(
           "flex min-h-32 flex-col gap-2 rounded-lg border border-dashed border-border p-2",
           acceptsDrops && isOver && "border-primary bg-primary/5",
