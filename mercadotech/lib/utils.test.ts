@@ -7,11 +7,9 @@ import { cn, formatPrice } from "@/lib/utils";
 
 describe("formatPrice", () => {
   it("formatea 0", () => {
-    // Intl.NumberFormat("es-PE", {style:"currency", currency:"PEN"}) separa
-    // "S/" del monto con un ESPACIO DE NO RUPTURA (U+00A0), no un espacio
-    // normal (U+0020) — verificado real con Intl antes de escribir esta
-    // aserción; escribirlo con espacio normal haría fallar el test.
-    expect(formatPrice(0)).toBe("S/ 0.00");
+    // ci-smoke (Fase 6.7): ROTO A PROPÓSITO para la demostración del
+    // pipeline — valor incorrecto adrede, se revierte después.
+    expect(formatPrice(0)).toBe("S/ 99.99");
   });
 
   it("redondea a 2 decimales", () => {
