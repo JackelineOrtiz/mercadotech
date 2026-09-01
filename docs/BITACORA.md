@@ -293,6 +293,38 @@ de `generateMetadata` no distingue `PGRST116` de un error de red genérico — a
 título "Producto no encontrado", inconsistente con `hooks/useProduct.ts` que sí hace esa
 distinción para el cuerpo de la página.
 
+### Fase 7.2 (performance) y 7.3 (secretos) — `docs/PERFORMANCE.md` y `docs/DEPLOY.md`
+
+Medición real con Lighthouse CLI contra build de producción (no `next dev`) en las 4 páginas de
+la spec. Dos de los tres candidatos preaprobados (`next/dynamic` en `ChatWindow`/
+`OrdersKanban`/`SortableImageGallery`) empeoraron el resultado real medido — `OrdersKanban`/
+`SortableImageGallery` mejoraban 3 rutas de vendedor pero inflaban el chunk COMPARTIDO por toda
+la app, empeorando justo las páginas que mide el objetivo (home/categoría); revertidos ambos con
+evidencia real, aislando la causa con `git stash push -- <archivo>` selectivo. El objetivo
+Lighthouse ≥90 no se alcanza (82-86) por una causa raíz real fuera del alcance preaprobado
+(Render Delay ~90% del LCP, arquitectura 100% client-rendered) — decisión explícita del usuario de
+no ampliar el alcance y documentarlo como deuda técnica. Detalle completo con tablas antes/después
+→ `docs/PERFORMANCE.md`. Auditoría de variables/secretos (tabla de gobernanza, greps anti-fuga
+reales) → `docs/DEPLOY.md` §1.
+
+### Fase 7.4 (deploy) — Supabase de producción linkeado y migrado
+
+Tarea A completada: proyecto `MercadoTech Datapath` (`gdlugailzawkugfxyxrg`) ya existía (creado al
+arrancar el curso), se linkeó y migró desde cero. `supabase login` falló dos veces con
+`Error: Could not create CLI login session` (actualizar la CLI 2.115.0 → 2.116.0 no lo resolvió);
+se resolvió con `SUPABASE_ACCESS_TOKEN` (token personal generado en el dashboard). `supabase db
+push` falló a mitad de las 27 migraciones con `ERROR: type "vector" does not exist (SQLSTATE
+42704)` en `20260828100000_grant_service_role_execute_match_knowledge.sql` — bug real
+preexistente, nunca antes probado contra un Postgres remoto: esa migración referenciaba `vector`
+sin calificar el esquema (`extensions.vector`), y solo funcionaba en local/CI porque
+`extra_search_path` de `config.toml` agrega `"extensions"` al `search_path` del stack de
+`supabase start`, un ajuste que **no aplica a `supabase db push` contra un proyecto remoto**.
+Reproducido y confirmado el fix (`extensions.vector` calificado, mismo patrón que ya usaba
+correctamente `create_match_knowledge.sql`) corriendo ambos casos directo contra Postgres local
+con `search_path` restringido antes de tocar el archivo real, y validado con `supabase db reset`
+completo (27/27 migraciones). Re-corrido `supabase db push`: éxito, producción migrada. Detalle
+completo → `docs/DEPLOY.md` §2.
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

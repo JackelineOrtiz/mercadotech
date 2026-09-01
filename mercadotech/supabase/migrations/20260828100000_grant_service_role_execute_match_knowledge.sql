@@ -12,7 +12,17 @@
 -- el admin. Mismo patrón exacto que el hallazgo de la Fase 4.3
 -- (BYPASSRLS de service_role no sustituye los GRANT normales de
 -- Postgres), aplicado a una función en vez de a una tabla.
-grant execute on function public.match_knowledge(vector, text, integer, double precision)
+--
+-- Tipo calificado como `extensions.vector` (no `vector` a secas): esta
+-- migración corrió sin problema en local/CI porque `extra_search_path` de
+-- config.toml agrega "extensions" al search_path del stack de `supabase
+-- start` — pero `supabase db push` contra un proyecto remoto (Fase 7.4)
+-- NO aplica ese ajuste, y el statement fallaba con "type vector does not
+-- exist (SQLSTATE 42704)". Mismo tipo que ya usa create_match_knowledge.sql
+-- (Fase 4.1) al declarar el parámetro `query_embedding extensions.vector(384)`.
+-- Reproducido y confirmado el fix corriendo ambas variantes directo contra
+-- Postgres local con `search_path` restringido a `public` (2026-09-01).
+grant execute on function public.match_knowledge(extensions.vector, text, integer, double precision)
   to service_role;
 
 -- Mismo hallazgo, mismo origen (probado en el Inspector al ejercitar

@@ -85,9 +85,48 @@ arriba.
 
 ## 2. Flujo de despliegue (Fase 7.4)
 
-_Pendiente — requiere las 3 tareas humanas de `MercadoTech_sesion7.md` (proyecto Supabase de
-producción, cuenta de Vercel conectada a GitHub, branch protection). Se completa cuando esas 3
-cuentas existan._
+### 2.1 Proyecto Supabase de producción (Tarea A) — completo
+
+Proyecto `MercadoTech Datapath` (`gdlugailzawkugfxyxrg`), plan Free. Creado directo en el
+dashboard (no vía CLI — la CLI solo puede linkear a un proyecto ya existente, no crearlo).
+
+```bash
+supabase login              # OAuth en el navegador; también acepta SUPABASE_ACCESS_TOKEN
+                             # (generado en supabase.com/dashboard/account/tokens) si el login
+                             # normal falla con "Could not create CLI login session" — ver 2.2
+supabase link --project-ref gdlugailzawkugfxyxrg
+supabase db push
+```
+
+### 2.2 Problemas reales encontrados linkeando/migrando (2026-09-01)
+
+* **`supabase login` falló** con `Error: Could not create CLI login session` en la primera
+  corrida. Se probó `brew upgrade supabase` (2.115.0 → 2.116.0) sin resolverlo — se resolvió con
+  la alternativa `SUPABASE_ACCESS_TOKEN` (token personal generado en el dashboard, exportado en
+  la terminal del usuario). El token generado durante esta sesión quedó parcialmente expuesto en
+  una captura de pantalla pegada al chat — se le indicó al usuario revocarlo y generar uno nuevo
+  una vez cerrada esta fase, como precaución (nunca se vio completo ni se usó desde fuera de su
+  propia terminal).
+* **`supabase db push` falló a mitad de las migraciones** con `ERROR: type "vector" does not
+  exist (SQLSTATE 42704)` en `20260828100000_grant_service_role_execute_match_knowledge.sql`.
+  Causa raíz real: esa migración referencia el tipo `vector` sin calificar el esquema
+  (`extensions.vector`), y funcionaba en local/CI únicamente porque `extra_search_path` de
+  `config.toml` agrega `"extensions"` al `search_path` del stack de `supabase start` — un ajuste
+  exclusivo del entorno local que **`supabase db push` contra un proyecto remoto no aplica**. Es
+  el mismo patrón, en un GRANT, que ya usa correctamente `create_match_knowledge.sql`
+  (`extensions.vector(384)` calificado). Reproducido y confirmado el fix corriendo ambos casos
+  directo contra Postgres local con `search_path` restringido a `public` antes de tocar el
+  archivo real. Fix: calificar el tipo en el `GRANT` (commit — ver `docs/BITACORA.md`). Re-corrido
+  `supabase db push`: las 27 migraciones quedaron aplicadas en producción.
+
+**Lección para futuras migraciones que usen `vector` fuera de un `security definer`/`security
+invoker` con su propio `set search_path`**: calificar SIEMPRE `extensions.vector`, nunca confiar
+en `extra_search_path` de `config.toml` — ese ajuste no viaja a producción.
+
+### 2.3 Pendiente
+
+_Falta: cuenta de Vercel conectada a GitHub (Tarea B), import del repo, variables de entorno
+cargadas a mano (ver Sección 1), branch protection (Tarea C, al cierre de esta fase)._
 
 ## 3. Smoke tests post-deploy (Fase 7.4)
 
