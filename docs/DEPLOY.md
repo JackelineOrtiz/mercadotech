@@ -123,11 +123,13 @@ supabase db push
 invoker` con su propio `set search_path`**: calificar SIEMPRE `extensions.vector`, nunca confiar
 en `extra_search_path` de `config.toml` — ese ajuste no viaja a producción.
 
-### 2.3 Primer deploy a Vercel (Tarea B) — bug real encontrado y corregido
+### 2.3 Primer deploy a Vercel (Tarea B) — dos bugs reales encontrados y corregidos
 
 Import del repo (`Add New... → Project`, acceso limitado solo a `mercadotech` en el GitHub App de
 Vercel) con **Root Directory = `mercadotech`** (obligatorio: el proyecto Next.js no vive en la
 raíz del repo) y las 4 variables de la tabla de la Sección 1 cargadas antes del primer deploy.
+
+#### Bug 1 (build-time): alias `@/*` sin resolver en el bundler de Edge Functions
 
 **El primer deploy falló** en la etapa de empaquetado de funciones (el build en sí — `next build`
 — terminó limpio, sin errores, generando las 24 rutas):
@@ -137,29 +139,48 @@ The Edge Function "middleware" is referencing unsupported modules:
 - __vc__ns__/0/mercadotech/middleware.js: @/lib/supabase/middleware
 ```
 
-`middleware.ts`/`lib/supabase/middleware.ts` usan exactamente el patrón oficial de `@supabase/ssr`
-para Next.js Middleware (Edge Runtime) — no hay nada exótico ahí. Causa raíz real, confirmada
-buscando el error exacto: un bug conocido de **Turbopack en el build de producción**
-(`next build --turbopack`, package.json Fase 2.1) — Turbopack referencia módulos internos por un
-hash atado a la estructura de `node_modules` en el momento del build; cuando Vercel reinstala
-dependencias en su propio pipeline (mismo `package-lock.json`, pero árbol de `node_modules`
-generado de nuevo), el hash no coincide y el empaquetador de Edge Functions no puede resolver el
-módulo — aunque localmente y en CI (que solo corren `next build` sin desplegar a un Edge Runtime
-real) nunca se manifestó. Ver [vercel/next.js#87737](https://github.com/vercel/next.js/issues/87737),
-mismo síntoma documentado por otros equipos.
+Primera hipótesis (**descartada por evidencia**, dejada acá para que quede el registro honesto):
+un bug de Turbopack en el build de producción (`next build --turbopack`) atado al hash de
+`node_modules`. Se quitó `--turbopack` de `"build"` (Webpack para producción, commit `02c72ed`) —
+**el error persistió IDÉNTICO** con el mismo commit reconstruido sin caché, descartando esa
+hipótesis. La causa raíz real: `middleware.ts` es el ÚNICO archivo que Vercel empaqueta con un
+pipeline de Edge Function separado del resto del build, y ese paso no resolvía el alias `@/*` de
+`tsconfig.json` — se agrava con el Root Directory en subcarpeta (visible en el propio path del
+error, `__vc__ns__/0/mercadotech/...`). Fix real: import relativo en vez de alias en
+`middleware.ts` (`./lib/supabase/middleware` en vez de `@/lib/supabase/middleware`, commit
+`c058e38`) — recién ahí el build llegó a "Ready".
 
-Fix: `package.json` — `"build": "next build --turbopack"` → `"build": "next build"` (Webpack para
-el build de PRODUCCIÓN; `"dev": "next dev --turbopack"` se deja intacto, Turbopack sigue sirviendo
-bien para desarrollo local). Verificado antes de commitear: `npm run build` compila limpio con
-Webpack, `npm run lint`/`type-check` exit 0, `npm run test` 218/218, `npm run test:e2e` 24/24
-(`supabase db reset` fresco).
+`--turbopack` se dejó afuera del build de producción de todas formas (queda solo en `"dev"`) — no
+era la causa de ESTE bug, pero sigue siendo la opción estable/madura para producción, y de yapa
+bajó el "First Load JS shared by all" de 209 kB (el número que documenta `docs/PERFORMANCE.md` de
+la Fase 7.2, ahora desactualizado) a 102 kB.
 
-**Hallazgo colateral real** (no buscado, medido al correr el build con Webpack): el "First Load JS
-shared by all" bajó de 209 kB (Turbopack, el número que documenta `docs/PERFORMANCE.md` de la Fase
-7.2) a **102 kB** (Webpack) — una diferencia real de bundling entre ambos, no ruido de medición.
-`docs/PERFORMANCE.md` queda con ese número desactualizado (medido contra un build que ya no es el
-que se despliega); no se re-corrió Lighthouse contra el build nuevo en esta fase — deuda técnica
-anotada, no bloqueante para el deploy.
+#### Bug 2 (runtime): `__dirname` no existe en el Edge Runtime real
+
+Con el build ya en "Ready", la app cargaba **500 `MIDDLEWARE_INVOCATION_FAILED`** en cada request:
+`[ReferenceError: __dirname is not defined]` (Vercel → Logs → click en el error). Ninguna
+herramienta local (`next dev`, `next start`, ni siquiera `next build` con Webpack) reproduce el
+error porque ninguna ejecuta el runtime Edge real de Vercel, solo lo emulan.
+
+Causa raíz confirmada reproduciendo el pipeline real de Vercel en local (`vercel build`, con
+permiso explícito del usuario para usar la CLI solo para esto — nunca para desplegar): el bundle
+de la Edge Function (`.vercel/output/functions/middleware.func/`) incluye
+`node_modules/next/dist/compiled/ua-parser-js/ua-parser.js` — un archivo **vendorizado dentro del
+propio Next.js**, no de nuestro código ni de `@supabase/ssr`, que Next.js agrega automáticamente a
+cualquier middleware y que referencia `__dirname`. El propio `vercel build` ya avisaba la salida:
+`Warning: middleware.ts uses the deprecated "edge" runtime. Migrate to the Node.js runtime...`
+
+Fix: `middleware.ts` — `export const config = { runtime: "nodejs", matcher: [...] }` (Node.js
+Middleware, GA desde Next.js 15.2, estamos en 15.5.23) en vez del runtime Edge por default. Mismo
+`updateSession`, sin cambios de comportamiento — solo corre en un runtime con Node.js completo
+(`__dirname` incluido), en vez del sandbox restringido de Edge. Confirmado en el artefacto real:
+`.vc-config.json` del `middleware.func` pasó de `"runtime": "edge"` a `"runtime": "nodejs24.x"`.
+
+Verificación completa antes de commitear: `vercel build` real (no solo `next build`) compila sin
+warnings de runtime deprecado; `npm run lint`/`type-check` exit 0; `npm run test` 218/218;
+`npm run test:e2e` 24/24 (`supabase db reset` fresco, incluye los tests que ejercitan el guard de
+auth del middleware). `.vercel/` y `.env.local` generados por la CLI se descartaron después
+(`rm -rf`, ya estaban en `.gitignore`) y se cerró la sesión de `vercel logout` al terminar.
 
 ### 2.4 Pendiente
 

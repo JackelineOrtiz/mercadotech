@@ -326,19 +326,36 @@ completo (27/27 migraciones). Re-corrido `supabase db push`: éxito, producción
 completo → `docs/DEPLOY.md` §2.
 
 Tarea B (primer deploy a Vercel): el import y las variables de entorno salieron bien (Root
-Directory `mercadotech`), pero el primer deploy real falló en el empaquetado de Edge Functions —
-`The Edge Function "middleware" is referencing unsupported modules: @/lib/supabase/middleware` —
-con un `next build` local y de CI totalmente limpios. Causa raíz real (confirmada buscando el
-error exacto, no adivinada): bug conocido de Turbopack en builds de producción
-([vercel/next.js#87737](https://github.com/vercel/next.js/issues/87737)) — referencia módulos
-internos por un hash atado a la estructura de `node_modules` del momento del build, que no
-coincide entre el `npm install` local/CI y el que corre el pipeline de Vercel, y solo se manifiesta
-en el empaquetado real de Edge Functions (nunca en `next build` sin desplegar). Fix: `package.json`
-`"build"` deja de usar `--turbopack` (Webpack para producción; `dev` se queda con Turbopack).
-Verificado con el ciclo completo (lint/type-check/build/test 218 + test:e2e 24, todos ok) antes de
-commitear. Hallazgo colateral real: el bundle compartido bajó de 209 kB (Turbopack, el número que
-documenta `docs/PERFORMANCE.md`) a 102 kB (Webpack) — ese doc queda con el número desactualizado,
-anotado como deuda, no bloqueante. Detalle completo → `docs/DEPLOY.md` §2.3.
+Directory `mercadotech`), pero salieron DOS bugs reales antes de llegar a un deploy funcionando.
+
+**Bug 1 (build-time)**: `The Edge Function "middleware" is referencing unsupported modules:
+@/lib/supabase/middleware`, con `next build` local y de CI totalmente limpios. Primera hipótesis
+(bug de Turbopack atado al hash de `node_modules`, [vercel/next.js#87737](https://github.com/vercel/next.js/issues/87737))
+**quedó descartada por evidencia real**: quitar `--turbopack` (commit `02c72ed`) no cambió nada,
+el mismo error se reprodujo idéntico. Causa raíz real: `middleware.ts` es el único archivo que
+Vercel empaqueta con un pipeline de Edge Function separado, y ese paso no resolvía el alias `@/*`
+de `tsconfig.json` (se agrava con el Root Directory en subcarpeta). Fix real: import relativo en
+vez de alias en `middleware.ts` (commit `c058e38`) — recién ahí el build llegó a "Ready". Se
+documenta la hipótesis descartada a propósito, para que quede el registro honesto de cómo se llegó
+a la causa real. `--turbopack` se dejó afuera de todas formas (sigue siendo más estable para
+producción); bundle compartido bajó de 209 kB a 102 kB (`docs/PERFORMANCE.md` queda desactualizado
+en ese número, anotado como deuda).
+
+**Bug 2 (runtime)**: con el build en "Ready", cada request tiraba 500
+`MIDDLEWARE_INVOCATION_FAILED` — `[ReferenceError: __dirname is not defined]`, invisible en
+cualquier herramienta local porque ninguna ejecuta el runtime Edge real de Vercel. Causa raíz
+confirmada reproduciendo el pipeline real de Vercel en esta máquina (`vercel build`, instalando y
+logueando la CLI con permiso explícito del usuario — solo para inspeccionar el bundle, nunca para
+desplegar, sesión cerrada y artefactos borrados al terminar): el bundle de la Edge Function incluye
+`node_modules/next/dist/compiled/ua-parser-js/ua-parser.js` — vendorizado DENTRO de Next.js, no es
+código nuestro ni de `@supabase/ssr` — que referencia `__dirname`, inexistente en el sandbox Edge
+real. El propio `vercel build` ya avisaba la salida (`middleware.ts uses the deprecated "edge"
+runtime`). Fix: `middleware.ts` — `export const config = { runtime: "nodejs", ... }` (Node.js
+Middleware, GA desde Next.js 15.2). Confirmado en el artefacto real: `.vc-config.json` pasó de
+`runtime: "edge"` a `runtime: "nodejs24.x"`. Verificado con `vercel build` real + ciclo completo
+(lint/type-check/test 218/test:e2e 24, todos ok) antes de commitear.
+
+Detalle completo de ambos bugs → `docs/DEPLOY.md` §2.3.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
