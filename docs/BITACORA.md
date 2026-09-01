@@ -402,7 +402,17 @@ inerte del bundler `ncc` (`__nccwpck_require__.ab=__dirname+"/"`, una "asset bas
 build` real sin ningún `__dirname` en el bundle; deploy Preview real sin errores en los logs; `npm
 run test` 218/218, `npm run test:e2e` 24/24.
 
-Detalle completo de los 5 bugs (incluidos los 2 explorados y descartados) → `docs/DEPLOY.md` §2.3.
+**Bug 6, el que faltaba**: con el middleware ya arreglado, el sitio real seguía en `404 NOT_FOUND` —
+pero este era un 404 de VERCEL, no de la app. Causa real: `vercel project inspect` mostró
+`"framework": null` — el import inicial nunca terminó de guardar "Next.js" como framework (la
+pantalla de import se había quedado cargando sin confirmarlo, mucho antes de esta sección), así que
+Vercel nunca empaquetaba rutas/funciones reales, solo copiaba los assets públicos. Fix (con permiso
+explícito, tocando el proyecto real): `vercel project update mercadotech --framework nextjs --yes`
++ `vercel redeploy ... --target production`. Verificado contra el dominio real: `/` → `200` con
+título real; `/carrito` sin sesión → `307` a `/login?redirectTo=...` (el middleware aplicando el
+guard correctamente); `/login` → `200`. Con esto la Tarea B queda cerrada de verdad.
+
+Detalle completo de los 6 bugs (incluidos los 2 explorados y descartados) → `docs/DEPLOY.md` §2.3.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

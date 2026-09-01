@@ -328,6 +328,36 @@ exit 0; `npm run test` 218/218; `npm run test:e2e` 24/24 (`supabase db reset` fr
 Al terminar toda esta exploración: `vercel logout`, se borraron `.vercel/` y `.env.local`
 generados por la CLI (ya en `.gitignore`).
 
+#### Bug 6, el que faltaba: el proyecto de Vercel nunca quedó como framework "Next.js"
+
+Con el middleware ya arreglado (Bugs 1-5), el sitio real seguía dando `404 NOT_FOUND` — pero esta
+vez el error era de **Vercel, no de la app** (texto plano "The page could not be found", sin pasar
+por nuestro `not-found.tsx`). El propio `vercel build` local lo dejaba ver: `.vercel/output/static/`
+solo tenía los 5 SVG de `public/` (nada de HTML/JS compilado), y `.vercel/output/functions/` solo
+tenía `middleware.func` — ninguna función para las rutas dinámicas (`/api/v1/chat`,
+`/categoria/[slug]`, `/producto/[id]`, etc.).
+
+Causa raíz real: `vercel project inspect` mostró `"framework": null` — el import inicial del
+proyecto (mucho antes de toda esta sección) nunca terminó de detectar/guardar "Next.js" como
+framework (el campo "Application Preset" de la pantalla de import se había quedado cargando sin
+confirmar, y se siguió sin verificarlo). Con `framework: null`, Vercel nunca invoca su builder
+especializado de Next.js — el build (`npm run build`) corre igual y compila bien, pero Vercel no
+sabe empaquetar el resultado en funciones/rutas reales, solo copia los assets públicos tal cual.
+
+Fix (con permiso explícito del usuario, dos pasos separados por lo directo que tocan el proyecto
+real): `vercel project update mercadotech --framework nextjs --yes`, seguido de
+`vercel redeploy https://mercadotech-pi.vercel.app --target production` para que el deploy ya
+existente se reconstruya con el framework correcto (los deploys viejos no se actualizan solos).
+
+Verificación real y completa, contra el dominio de producción de verdad:
+- `GET /` → `200`, HTML real con `<title>MercadoTech</title>`.
+- `GET /carrito` (ruta protegida, sin sesión) → `307` → `Location: /login?redirectTo=%2Fcarrito` —
+  el middleware corriendo y aplicando el guard de auth correctamente.
+- `GET /login` → `200`.
+
+Con esto, la Tarea B de la Fase 7.4 queda de verdad cerrada: proyecto Next.js real desplegado y
+funcionando en `https://mercadotech-pi.vercel.app`.
+
 ### 2.4 Pendiente
 
 _Falta: branch protection (Tarea C, al cierre de esta fase), smoke tests post-deploy (Sección 3),
