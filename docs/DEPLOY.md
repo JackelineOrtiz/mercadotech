@@ -396,10 +396,123 @@ protected", después devuelve la regla completa aplicada).
 _Falta: smoke tests post-deploy (Sección 3), rollback (Sección 4). Fase 7.4 completa en lo demás:
 Tareas A, B y C cerradas y verificadas contra sistemas reales._
 
-## 3. Smoke tests post-deploy (Fase 7.4)
+## 3. Smoke tests post-deploy (Fase 7.5)
 
-_Pendiente — depende de la sección 2._
+Corridos de verdad contra `https://mercadotech-pi.vercel.app` (Fase 7.5, 2026-09-01), no simulados.
+
+### 3.1 Producción arrancó completamente vacía
+
+Al armar este smoke test se encontró que producción tenía las 26 migraciones aplicadas (Fase 7.4)
+pero **cero datos** — sin categorías, sin productos, sin artículos de FAQ. Solo se había corrido
+`supabase db push` (schema), nunca un seed real. `supabase/seed.sql` (el de laboratorio: 6 usuarios
+falsos, pedidos en los 5 estados) **nunca toca producción** — decisión 6 de
+`MercadoTech_sesion7.md`.
+
+Se creó `supabase/seed.prod.sql`: 8 categorías (mismas que el catálogo del laboratorio, son
+taxonomía real, no datos de prueba) + 10 artículos de FAQ reales (contenido genérico de un
+marketplace, no datos de usuarios/pedidos falsos) — sin usuarios ni productos falsos, esos los crea
+un usuario real por la UI, como parte del propio smoke test. Corrido a mano en el SQL Editor de
+Supabase del proyecto de producción (no es una migración — no se corre con `db push`).
+
+### 3.2 Indexado del RAG contra producción — bug real del script
+
+```bash
+cd mercadotech
+mv .env.local .env.local.dev.bak     # guarda el .env.local real de desarrollo
+cat > .env.local << 'EOF'
+NEXT_PUBLIC_SUPABASE_URL=<URL de producción>
+SUPABASE_SERVICE_ROLE_KEY=<service_role de producción>
+HUGGINGFACEHUB_API_TOKEN=<tu token>
+EOF
+npx tsx scripts/index-all.ts
+rm .env.local && mv .env.local.dev.bak .env.local   # restaura el real, SIEMPRE, apenas termina
+```
+
+**Por qué el `mv`/`cat`/`mv` y no exportar las variables inline en el mismo comando**: el primer
+intento (`VAR=valor npx tsx scripts/index-all.ts`) falló — `scripts/index-all.ts` tiene
+`process.loadEnvFile(".env.local")` al principio, que sobreescribe INCONDICIONALMENTE cualquier
+variable ya presente en el proceso con lo que haya en `.env.local` (a diferencia de `dotenv`, que
+por default no pisa variables ya existentes). El resultado real fue silenciosamente confuso: el
+script corrió contra el Supabase LOCAL (mostró "17 productos activos", los del seed de laboratorio,
+no producción) y tiró `HUGGINGFACEHUB_API_TOKEN no está configurada` porque el `.env.local` de
+desarrollo tenía ese campo vacío en ese momento. Cambiar el archivo temporalmente es la única forma
+confiable de apuntar el script a otro entorno tal como está escrito hoy.
+
+**Hallazgo colateral (exposición de secretos, no un bug de código)**: al escribir valores reales de
+producción en `.env.local`, el propio harness de Claude Code detectó el cambio en disco y expuso el
+contenido completo (incluida la `service_role` real y el token de HF) en el contexto de la
+conversación — sin que nadie lo pidiera. Se recomendó al usuario rotar ambas credenciales
+(Supabase: Project Settings → API → Reset `service_role` secret; Hugging Face: Settings → Access
+Tokens → Revoke + crear una nueva) como precaución. Lección: si un archivo con secretos reales va a
+existir en disco aunque sea temporalmente, asumir que puede terminar expuesto por vías fuera del
+propio control del operador, y rotar después por las dudas — no depende de haber hecho algo mal.
+
+### 3.3 Registro real — Site URL de Auth apuntaba a localhost
+
+Al registrar la primera cuenta real (`/register` en producción), el link de confirmación de correo
+llegó apuntando a `http://localhost:3000/?code=...` en vez de la URL de producción — el proyecto de
+Supabase nunca tuvo su **Site URL** de Auth actualizada al pasar de local a producción (se creó y
+migró con el default de desarrollo). Workaround inmediato para no perder el registro: cambiar el
+host en la URL del correo (`localhost:3000` → `mercadotech-pi.vercel.app`, mismo `?code=`) — el
+código sigue siendo válido para el mismo proyecto de Supabase sin importar qué frontend lo sirve.
+
+Fix real, dos lugares:
+1. Supabase dashboard → `MercadoTech Datapath` → Authentication → URL Configuration: **Site URL**
+   → `https://mercadotech-pi.vercel.app`; **Redirect URLs** → agregar
+   `https://mercadotech-pi.vercel.app/**`.
+2. Vercel → proyecto `mercadotech` → Settings → Environment Variables: agregar
+   `NEXT_PUBLIC_SITE_URL=https://mercadotech-pi.vercel.app` (tipo **Config**, no Secret — el
+   prefijo `NEXT_PUBLIC_` ya la expone al navegador, marcarla Secret bloquea el guardado con un
+   error real de Vercel) en **Production** (agregada en la pestaña "Projects" del proyecto, no en
+   "Shared" — esa es a nivel de equipo y no se conecta sola). Redeploy manual para que tome efecto
+   (los env vars no aplican a deploys ya hechos, decisión 10 de la spec).
+
+Quedaba pendiente que el `.env.example`/README documenten `NEXT_PUBLIC_SITE_URL` como variable de
+producción real (ya estaba en la tabla de gobernanza de la Sección 1, faltaba cargarla en Vercel).
+
+### 3.4 Resultado del smoke test completo
+
+* ✅ `GET /` → `200`, home real (no el 404/`NOT_FOUND` de Vercel de la Fase 7.4).
+* ✅ `GET /categoria/laptops` → carga "Laptops" (categoría real del seed de producción).
+* ✅ `GET /carrito` sin sesión → `307` a `/login?redirectTo=%2Fcarrito` (guard de auth real).
+* ✅ Registro real (`/register`) + confirmación de correo (después del fix de Site URL) + login.
+* ✅ Cambio de rol de comprador a vendedor por un admin real, vía `/admin/usuarios` (ver la entrada
+  de "panel de admin" en `docs/BITACORA.md` — encontrada como parte de este mismo smoke test:
+  el panel era de solo lectura, se agregó la función completa antes de poder terminar esta prueba).
+* ⏳ Publicar un producto demo real y verificar el asistente citando la FAQ — pendiente, siguiente
+  paso natural con la cuenta de vendedor ya creada y la FAQ ya indexada.
 
 ## 4. Rollback (Fase 7.5)
 
-_Pendiente — depende de la sección 2._
+**Cómo volver al deploy anterior** (Vercel, Git integration): Dashboard → proyecto `mercadotech` →
+**Deployments** → buscar el deployment anterior que sí funcionaba (el que está justo antes del que
+rompió, con estado "Ready") → `⋯` → **"Promote to Production"** (o **"Redeploy"** si se prefiere
+reconstruirlo desde cero en vez de reusar el build ya hecho — más lento, mismo resultado final).
+Confirmar. El dominio de producción (`mercadotech-pi.vercel.app`) apunta al deployment elegido en
+segundos, sin esperar un build nuevo si se usa "Promote".
+
+**Cuándo usarlo**: un merge a `main` pasó el CI (obligatorio por branch protection) pero rompió algo
+que el CI no cubre — un error solo visible en el runtime real de Vercel (exactamente la clase de
+bug que salió 6 veces en la Fase 7.4: Edge Runtime, framework detection, etc.), o un error de
+negocio que ningún test automatizado ejercita.
+
+**Qué NO revierte un rollback de Vercel — el más importante de anotar**:
+* **La base de datos.** Las migraciones de Supabase NO se deshacen solas al volver a un deploy
+  anterior de Vercel — son dos sistemas independientes. Si el commit problemático incluía una
+  migración de schema ya aplicada a producción (`supabase db push`), un rollback de Vercel deja el
+  CÓDIGO viejo corriendo contra un ESQUEMA nuevo — puede romper más de lo que arregla si el código
+  viejo no es compatible con la migración nueva. Antes de hacer rollback, verificar si el commit
+  problemático tocó `supabase/migrations/` — si sí, el rollback real necesita revertir la migración
+  también (a mano, con una migración nueva que deshaga el cambio — Supabase no tiene "down
+  migrations" automáticas en este proyecto).
+* **Los datos ya escritos** (pedidos reales, usuarios registrados, roles cambiados) entre el deploy
+  malo y el rollback — un rollback de código no borra ni revierte filas ya insertadas/actualizadas.
+* **Variables de entorno** cambiadas después del deploy problemático — vuelven a aplicar según el
+  valor ACTUAL en Vercel, no el que tenían al momento del deploy al que se vuelve (decisión 10 de
+  la spec: cada deploy queda "congelado" con los valores que tenía al construirse, pero el rollback
+  no reconstruye, solo reapunta el dominio a un build ya hecho con SUS propios valores congelados
+  de ese momento — puede haber una variable que ya no existe o cambió de nombre desde entonces).
+
+**Regla práctica**: un rollback de Vercel es seguro y rápido para un bug puramente de
+código/frontend. Si el commit problemático tocó `supabase/migrations/` o cualquier dato real, un
+rollback de Vercel es solo la mitad del arreglo — la otra mitad es manual, en la base de datos.

@@ -99,18 +99,29 @@ create policy "profiles_select_own_or_admin" on public.profiles
 -- tanto no necesita (ni pasa por) una política de INSERT. Un INSERT directo
 -- del cliente queda denegado por defecto.
 
--- UPDATE: solo el dueño. La protección de la columna "role" no puede
+-- UPDATE: el dueño, o un admin sobre CUALQUIER fila (Fase 7.5 — panel de
+-- admin, /admin/usuarios). La protección de la columna "role" no puede
 -- expresarse en una política (RLS es por fila, no por columna): se resuelve
--- abajo con GRANT de columnas + un trigger dedicado.
+-- abajo con GRANT de columnas + un trigger dedicado (protect_profiles_role
+-- ya distinguía admin vs. no-admin desde la Fase 2.3 — faltaba esta policy
+-- y el GRANT de "role" para que tuviera efecto real).
 create policy "profiles_update_own" on public.profiles
   for update
   using ((select auth.uid()) = id)
   with check ((select auth.uid()) = id);
 
+create policy "profiles_update_admin" on public.profiles
+  for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- Un usuario autenticado normal solo puede tocar estas columnas de su
--- propio perfil — "role" queda fuera a propósito (ver trigger de abajo).
+-- propio perfil — "role" queda fuera de este GRANT a propósito (ver
+-- trigger de abajo: sin ser admin, protect_profiles_role rechaza el
+-- cambio aunque el GRANT ahora permita la columna).
 grant select on public.profiles to authenticated;
 grant update (display_name, phone, avatar_path) on public.profiles to authenticated;
+grant update (role) on public.profiles to authenticated;
 
 -- DELETE: sin política — nadie borra perfiles vía cliente (no está en la
 -- spec; borrar un perfil rompería el historial de pedidos/reseñas).

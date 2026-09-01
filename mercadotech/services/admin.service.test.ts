@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPlatformStats, listUsers } from "@/services/admin.service";
+import { getPlatformStats, listUsers, updateUserRole } from "@/services/admin.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
 describe("admin.service.getPlatformStats", () => {
@@ -91,5 +91,22 @@ describe("admin.service.listUsers", () => {
   it("propaga el error tal cual", async () => {
     const supabase = mockSupabase({ profiles: { error: { message: "network error" } } });
     await expect(listUsers(supabase)).rejects.toMatchObject({ message: "network error" });
+  });
+});
+
+describe("admin.service.updateUserRole", () => {
+  it("actualiza role filtrando por id — la validación real (¿sos admin?) la hace RLS/el trigger, no este service", async () => {
+    const supabase = mockSupabase({ profiles: {} });
+    await updateUserRole("u1", "seller", supabase);
+    expect(supabase.updates("profiles")).toContainEqual({ role: "seller" });
+  });
+
+  it("propaga el error tal cual (ej. rechazo real de protect_profiles_role si no es admin)", async () => {
+    const supabase = mockSupabase({
+      profiles: { error: { message: "No tienes permiso para cambiar tu rol" } },
+    });
+    await expect(updateUserRole("u1", "seller", supabase)).rejects.toMatchObject({
+      message: "No tienes permiso para cambiar tu rol",
+    });
   });
 });

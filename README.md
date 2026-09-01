@@ -1,89 +1,194 @@
-# MercadoTech — Plan maestro del proyecto
+# MercadoTech
 
-Plataforma de compra/venta de **productos tecnológicos** tipo Mercado Libre, con un
-**centro de soporte operado por agentes de voz**. Este directorio contiene la
-planeación completa del proyecto, alineada 1:1 con las 8 sesiones del curso
-**Claude Code for Developers**, siguiendo el mismo patrón de especificaciones que
-se usó en ReadHub (`ReadHub.md`, `ReadHub_sesion3.md`, `ReadHub_sesion4.md`).
+Marketplace de compra/venta de productos tecnológicos (tipo Mercado Libre), con un asistente de
+compras y un centro de soporte operados por un pipeline de IA (RAG) propio.
 
-## Cómo usar estos archivos
+**Producción:** [mercadotech-pi.vercel.app](https://mercadotech-pi.vercel.app)
 
-1. Cada sesión tiene su propio archivo `MercadoTech_sesionN.md`.
-2. Cada archivo está dividido en **FASES numeradas** (ej. Fase 2.3).
-3. Cada fase incluye un **Prompt sugerido**: el texto exacto para pedirle a Claude
-   Code que ejecute esa fase. Se ejecutan **en orden**, una fase por prompt.
-4. Antes de la primera fase de cada sesión, el primer prompt siempre es:
-   > "Lee `mercadotech/MercadoTech_sesionN.md` completo y confírmame que entiendes
-   > el alcance. No generes código todavía."
-5. Cada sesión tiene una sección de **Restricciones** (lo que NO se debe hacer en
-   esa sesión) y **Criterios de aceptación** (cómo saber que la sesión está completa).
+> Este proyecto nació como el trabajo práctico del curso "Claude Code for Developers" — la
+> planeación original del curso, sesión por sesión, quedó preservada en
+> [`docs/PLAN_CURSO.md`](docs/PLAN_CURSO.md). Este README describe el producto tal como existe hoy,
+> no el plan.
 
-## Mapa curso → sesión → entregable
+## Qué es
 
-| Sesión | Tema del curso | Archivo | Entregable principal |
-|---|---|---|---|
-| 1 | Fundamentos, Setup y Estrategia de Costos | `MercadoTech_sesion1.md` | Repo + CLAUDE.md + estrategia de modelos/costos + biblioteca de prompts + test A/B |
-| 2 | Arquitectura Escalable y Backend con Supabase | `MercadoTech_sesion2.md` | Proyecto Next.js 15 + esquema SQL + migraciones + RLS + Storage + seed + validación RLS |
-| 3 | UI Inteligente y Frontend Multimodal | `MercadoTech_sesion3.md` | Todas las pantallas + hooks + services + drag & drop (galería y kanban de pedidos) |
-| 4 | Integrando IA en tu SaaS con RAG | `MercadoTech_sesion4.md` | pgvector + embeddings + búsqueda semántica + asistente de compras y soporte (texto) |
-| 5 | Custom Skills y Protocolo MCP | `MercadoTech_sesion5.md` | 4 Skills de gobernanza + servidor MCP (Tools/Resources/Prompts) |
-| 6 | Testing, Debugging y Automatización | `MercadoTech_sesion6.md` | Vitest (unit) + Playwright (E2E comprador y vendedor) + metodología de debugging |
-| 7 | Despliegue y CI/CD con IA | `MercadoTech_sesion7.md` | GitHub Actions + performance/Core Web Vitals + deploy a Vercel + documentación |
-| 8 | Demo Final y Roadmap | `MercadoTech_sesion8.md` | **Agente de voz de soporte** (STT/TTS + orquestador con herramientas) + demo + roadmap |
+- **Comprador**: catálogo con búsqueda semántica, favoritos, carrito, checkout transaccional,
+  historial de pedidos, reseñas y preguntas por producto, asistente de compras conversacional.
+- **Vendedor**: alta de productos (galería con drag & drop), panel de pedidos tipo kanban
+  (drag & drop entre estados), estadísticas de su tienda, storefront público (`/tienda/[sellerId]`).
+- **Admin**: gestión de usuarios y estadísticas globales.
+- **Soporte**: asistente de IA que responde citando artículos reales de la base de conocimiento
+  (RAG sobre `support_articles`), con fallback a tickets humanos.
 
-## Stack global (decidido desde el inicio)
+## Stack
 
-- **Next.js 15** (App Router) + **React 19** + **TypeScript**
-- **TailwindCSS v4** + **shadcn/ui**
-- **Supabase**: Postgres, Auth, Storage, pgvector, RLS
-- **IA (nivel gratuito de Hugging Face)**: `sentence-transformers/all-MiniLM-L6-v2`
-  (embeddings, 384 dims) + `meta-llama/Llama-3.1-8B-Instruct` (chat) — con capa de
-  abstracción para cambiar de proveedor sin tocar el resto del código
-- **Voz**: Web Speech API del navegador (STT `SpeechRecognition` + TTS
-  `speechSynthesis`) detrás de una interfaz `VoiceProvider` intercambiable
-- **MCP**: `@modelcontextprotocol/sdk` sobre stdio
-- **Testing**: Vitest + Playwright · **CI/CD**: GitHub Actions + Vercel
+- **Next.js 15** (App Router) + **React 19** + **TypeScript**, desplegado en **Vercel**
+- **Supabase**: Postgres + Auth + Storage + RLS + `pgvector`
+- **IA (nivel gratuito de Hugging Face)**: `sentence-transformers/all-MiniLM-L6-v2` (embeddings,
+  384 dims, vía SDK `@huggingface/inference`) + modelo de chat configurable por variable de entorno
+  (el catálogo gratuito de HF rota sin aviso — ver `lib/constants/ai.ts`)
+- **TailwindCSS v4** + **shadcn/ui** (Base UI)
+- **Testing**: Vitest (unit) + Playwright (E2E) · **CI/CD**: GitHub Actions + Vercel (Git
+  integration, branch protection en `main`)
+- **MCP**: servidor propio de solo lectura sobre `@modelcontextprotocol/sdk` (`mercadotech/mcp/`)
 
-## Principio rector: independencia de funciones, módulos y componentes
-
-Toda decisión de las 8 sesiones respeta esta separación por capas. Es la regla
-número uno del proyecto y las Skills de la sesión 5 la hacen cumplir:
+## Arquitectura, en una imagen
 
 ```
-components/       Presentación PURA. Reciben props, no hacen fetching, no conocen Supabase.
-hooks/            Estado de cliente. Llaman a services. Cero lógica de negocio propia.
-services/         Lógica de negocio. Cada función acepta un SupabaseClient INYECTABLE
-                  (default: cliente de navegador) — así hooks y Route Handlers comparten
-                  la misma lógica, y los tests la mockean sin red.
-lib/supabase/     Clientes: browser (anon), server (cookies+RLS), admin (service role).
+components/       Presentación PURA — recibe props, no hace fetching, no conoce Supabase.
+hooks/            Estado de cliente — llaman a services, sin lógica de negocio propia.
+services/         Lógica de negocio — cliente Supabase INYECTABLE (browser por default),
+                  así hooks, Route Handlers y tests comparten la misma función.
+lib/supabase/     4 clientes: browser (anon), server (cookies+RLS), middleware, admin (service role).
 lib/ai/           ÚNICOS archivos que conocen la API del proveedor de IA.
-lib/voice/        ÚNICOS archivos que conocen la API de voz del navegador/proveedor.
-lib/validators/   Validación framework-agnóstica, compartida entre UI y servidor.
-lib/constants/    Todos los tunables (IA, roles, límites) centralizados y documentados.
-types/            Tipos de dominio + database.ts generado por Supabase.
-app/api/v1/       Route Handlers DELGADOS, solo para lo que no puede correr en el
-                  navegador (secretos de IA, service role, cookies de sesión).
+lib/constants/    Todos los tunables (IA, roles, catálogo, pedidos...) centralizados.
+app/api/v1/       Route Handlers delgados — SOLO lo que no puede correr en el navegador
+                  (secretos de IA, cliente admin): chat, reindex, search/semantic.
+mcp/              Servidor MCP — consumidor más de services/ y lib/ai/, nunca reimplementa lógica.
 ```
 
-Reglas derivadas (aplican en todas las sesiones):
+Un único camino de datos: `components → hooks → services → Supabase (RLS)`. RLS es la única
+autoridad de qué fila puede tocar cada quien — no hay una capa de permisos paralela en la
+aplicación. Detalle completo, decisiones de diseño y el porqué de cada una →
+[`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
 
-1. **Un archivo, una responsabilidad.** `product.service.ts` no sabe de pedidos;
-   `order.service.ts` no sabe de embeddings.
-2. **Sin barrels.** Se importa el archivo específico, nunca "todo el módulo".
-3. **La UI nunca importa `lib/ai/`, `lib/voice/` ni el cliente admin.**
-4. **Un solo camino de datos:** hooks → services → Supabase (RLS). NO se construye
-   una capa REST paralela "por si acaso" (lección aprendida de ReadHub: quedó una
-   API v1 completa que el frontend nunca llamó).
-5. **Todo tunable vive en `lib/constants/`** con un comentario que justifica su valor.
+## Flujo RAG (asistente de compras y soporte)
 
-## Lección de ReadHub incorporada
+```mermaid
+flowchart LR
+    U[Usuario<br/>pregunta en /asistente o /soporte] --> H[hook: useChat]
+    H -->|fetch| R["app/api/v1/chat<br/>(Route Handler)"]
+    R --> E["lib/ai/embeddings.ts<br/>embed la pregunta"]
+    E --> M["match_knowledge()<br/>Postgres + pgvector<br/>similitud coseno"]
+    M --> C["lib/ai/context-builder.ts<br/>arma el contexto<br/>(top K, presupuesto de chars)"]
+    C --> P["lib/ai/completion.ts<br/>+ lib/ai/prompts.ts"]
+    P -->|fetch| L[Hugging Face<br/>router de chat]
+    L --> R
+    R --> H
+    H --> U2[Respuesta + fuentes citadas]
 
-- Los embeddings de Hugging Face **deben** usar el SDK `@huggingface/inference`
-  (`featureExtraction`), no el router REST (no soporta feature-extraction).
-- La disponibilidad de modelos gratuitos del router **rota**: el modelo de chat se
-  configura por variable de entorno para poder cambiarlo sin tocar código.
-- La dimensión del vector (384) queda fijada en la columna SQL: cambiar de modelo
-  de embeddings implica migración (`ALTER COLUMN ... TYPE vector(N)` + recrear
-  índice y función).
-- En CI se fija la versión de npm (deps opcionales de Linux ausentes en el lockfile
-  generado en Windows) y el E2E corre contra un Supabase local efímero, sin secretos.
+    subgraph Indexado previo
+      S1[products activos] -.-> IDX["scripts/index-all.ts"]
+      S2[support_articles publicados] -.-> IDX
+      IDX -.->|embed + insert| KB[(knowledge_embeddings)]
+      KB -.-> M
+    end
+```
+
+Los 6 tunables del pipeline (modelo de embeddings, modelo de chat, dimensión del vector, top K,
+threshold de similitud, presupuesto de contexto) viven en `lib/constants/ai.ts`, nunca hardcodeados.
+Los 6 casos de prueba y la calibración real → [`docs/RAG.md`](docs/RAG.md).
+
+## Puesta en marcha local
+
+Prerrequisitos: Node 20+, Docker corriendo (para el Supabase local), cuenta gratuita de
+[Hugging Face](https://huggingface.co) (token de tipo "Read").
+
+```bash
+# 1. Clonar e instalar
+git clone https://github.com/JackelineOrtiz/mercadotech.git
+cd mercadotech/mercadotech      # el proyecto Next.js vive en esta subcarpeta
+
+npm install                     # corre "postinstall": patch-package solo — ver nota abajo
+
+# 2. Levantar Supabase local (requiere Docker)
+supabase start                  # imprime API_URL, ANON_KEY, SERVICE_ROLE_KEY locales
+supabase db reset               # aplica las migraciones + carga supabase/seed.sql
+
+# 3. Variables de entorno
+cp .env.example .env.local
+# Completar con los valores que imprimió "supabase start" (Supabase) y tu token de
+# Hugging Face (HUGGINGFACEHUB_API_TOKEN) — nunca los valores de producción acá.
+
+# 4. Levantar el servidor de desarrollo
+npm run dev                     # http://localhost:3000
+```
+
+**Nota — `patch-package`:** el `postinstall` de `npm install` aplica un patch de una línea sobre
+`node_modules/next/dist/compiled/ua-parser-js/ua-parser.js` (`patches/next+15.5.23.patch`) — corrige
+un `__dirname` inerte que rompe el middleware en el runtime Edge real de Vercel (nunca en local).
+Es automático, no requiere ningún paso manual. Detalle → [`docs/DEPLOY.md`](docs/DEPLOY.md) §2.3.
+
+Usuarios de prueba (creados por `supabase/seed.sql`, contraseña `MercadoTech123!` para los 6):
+`buyer1@mercadotech.test` / `buyer2@mercadotech.test` / `buyer3@mercadotech.test` (compradores),
+`seller1@mercadotech.test` / `seller2@mercadotech.test` (vendedores), `admin1@mercadotech.test`
+(admin).
+
+Para indexar el contenido de soporte en el asistente RAG (opcional, requiere
+`HUGGINGFACEHUB_API_TOKEN` real en `.env.local`):
+
+```bash
+npx tsx scripts/index-all.ts
+```
+
+## Comandos
+
+```bash
+npm run dev            # servidor de desarrollo (Turbopack)
+npm run build           # build de producción (Webpack — ver nota de Turbopack en DEPLOY.md)
+npm run start            # sirve el build de producción
+npm run lint               # ESLint
+npm run type-check           # tsc --noEmit
+npm run db:types               # regenera types/database.ts desde el Supabase local
+npx tsx scripts/index-all.ts     # indexa productos activos + artículos publicados
+```
+
+## Testing
+
+```bash
+npm run test            # Vitest — lógica pura + services, sin red, no necesita Supabase arriba
+npm run test:coverage    # ídem + reporte en coverage/
+
+# E2E (Playwright) — requiere Supabase local arriba y una BD limpia:
+supabase db reset
+npm run test:e2e
+```
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) corre ambas suites en cada push/PR contra un
+Supabase efímero, sin ningún secreto — job `checks` (lint + type-check + unit) y job `e2e`
+(Playwright en Chromium). `main` tiene branch protection: ambos checks en verde son obligatorios
+para poder mergear, sin excepción ni para administradores.
+
+## Deploy
+
+Git integration de Vercel: cada push a una rama con PR abierta genera un preview con su propia URL;
+cada merge a `main` (solo posible con CI verde) redespliega producción automáticamente. Sin CLI de
+Vercel en el flujo normal, sin secretos en GitHub Actions. Gobernanza de variables/secretos, el
+detalle de los 6 bugs reales que salieron desplegando por primera vez, smoke tests post-deploy y el
+plan de rollback → [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+## Servidor MCP
+
+`mercadotech/mcp/` — servidor de solo lectura (Tools/Resources/Prompts) sobre el mismo `services/`
+y `lib/ai/` que usa la app. Detalle → [`mcp/README.md`](mercadotech/mcp/README.md).
+
+## Estructura del proyecto
+
+```
+mercadotech/                    # raíz del repo
+├── README.md                   # este archivo
+├── CLAUDE.md                   # guía para Claude Code (arquitectura, convenciones, comandos)
+├── docs/                       # documentación técnica
+│   ├── PLAN_CURSO.md             # planeación original del curso (histórico)
+│   ├── ARQUITECTURA.md            # arquitectura real, capa por capa
+│   ├── BITACORA.md                 # registro fase por fase, decisiones y deuda técnica
+│   ├── DEPLOY.md                    # variables, flujo de deploy, smoke tests, rollback
+│   ├── RAG.md                        # casos de prueba y calibración del pipeline de IA
+│   └── DEBUGGING.md                   # metodología y errores típicos encontrados
+├── MercadoTech_sesion*.md      # specs de cada sesión del curso
+├── .claude/skills/             # 6 Skills de gobernanza (arquitectura, code review, CI...)
+└── mercadotech/                # el proyecto Next.js
+    ├── app/                    # rutas: (shop) público, (seller) /vendedor, (admin) /admin, (auth)
+    ├── components/             # presentación pura, por dominio
+    ├── hooks/                  # estado de cliente
+    ├── services/               # lógica de negocio, cliente Supabase inyectable
+    ├── lib/
+    │   ├── supabase/           # 4 clientes (browser/server/middleware/admin)
+    │   ├── ai/                 # embeddings, completion, prompts, context-builder
+    │   └── constants/          # todos los tunables
+    ├── middleware.ts           # auth guard (runtime Edge)
+    ├── supabase/               # migraciones, seed, policies, tests RLS
+    ├── e2e/                    # Playwright
+    ├── patches/                # patch-package (next+15.5.23.patch)
+    └── mcp/                    # servidor MCP, paquete npm propio
+```
