@@ -414,6 +414,20 @@ guard correctamente); `/login` → `200`. Con esto la Tarea B queda cerrada de v
 
 Detalle completo de los 6 bugs (incluidos los 2 explorados y descartados) → `docs/DEPLOY.md` §2.3.
 
+### Tarea C (Fase 7.4) — branch protection real en GitHub
+
+Configurado con `gh api` (permiso explícito del usuario): PR obligatorio para mergear a `main`,
+checks `checks`/`e2e` del CI real obligatorios en verde, sin bypass ni para administradores
+(`enforce_admins: true`), sin force-push ni borrado de rama. `required_approving_review_count: 0`
+a propósito — proyecto de un solo desarrollador, exigir PR real alcanza, exigir una aprobación de
+alguien que no existe no. Verificado con `gh api .../protection` (404 antes, regla completa
+después). Con esto la Fase 7.4 queda completa: Tareas A (Supabase prod), B (Vercel deploy real) y
+C (branch protection) cerradas y verificadas contra sistemas reales, no simuladas.
+
+**Cambio de flujo real a partir de acá**: ya no se puede pushear directo a `main` — todo commit
+(propio o de Claude) pasa por rama → PR → CI real en verde → merge. Documentado en `CLAUDE.md`
+§"Flujo de Git".
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

@@ -358,10 +358,43 @@ Verificación real y completa, contra el dominio de producción de verdad:
 Con esto, la Tarea B de la Fase 7.4 queda de verdad cerrada: proyecto Next.js real desplegado y
 funcionando en `https://mercadotech-pi.vercel.app`.
 
-### 2.4 Pendiente
+### 2.4 Branch protection en GitHub (Tarea C) — completo
 
-_Falta: branch protection (Tarea C, al cierre de esta fase), smoke tests post-deploy (Sección 3),
-rollback (Sección 4)._
+Configurado vía `gh api` (con permiso explícito del usuario, en vez de los clics manuales que
+sugiere la spec — mismo resultado, más preciso):
+
+```bash
+gh api --method PUT repos/JackelineOrtiz/mercadotech/branches/main/protection --input body.json
+```
+
+con:
+
+```json
+{
+  "required_status_checks": { "strict": true, "contexts": ["checks", "e2e"] },
+  "enforce_admins": true,
+  "required_pull_request_reviews": { "required_approving_review_count": 0 },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+```
+
+`required_approving_review_count: 0` (no 1+): proyecto de un solo desarrollador, no tiene sentido
+exigir una aprobación de otra persona que no existe — igual exige que el cambio pase por un PR real
+(no se puede mergear sin abrir uno), solo no bloquea por falta de reviewer.
+
+Verificado con `gh api repos/.../branches/main/protection` (antes devolvía 404 "Branch not
+protected", después devuelve la regla completa aplicada).
+
+**Cambio de flujo real, confirmado en el primer commit después de activar la regla** (ver
+`CLAUDE.md` §"Flujo de Git"): ya no se puede pushear directo a `main`, ni con permisos de admin
+(`enforce_admins: true`) — todo pasa por rama → PR → CI real en verde → merge.
+
+### 2.5 Pendiente
+
+_Falta: smoke tests post-deploy (Sección 3), rollback (Sección 4). Fase 7.4 completa en lo demás:
+Tareas A, B y C cerradas y verificadas contra sistemas reales._
 
 ## 3. Smoke tests post-deploy (Fase 7.4)
 
