@@ -10,9 +10,18 @@ export interface ProductCardProps {
   // "Resultados con IA" de /buscar — el catálogo normal y el resto de
   // ProductGrid nunca lo pasan.
   product: Product & { similarity?: number };
+  // Fase 7.2 (performance): solo ProductGrid en la home lo pasa, y solo
+  // para las primeras tarjetas (above-the-fold) — ver ese componente.
+  priority?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+// Mismos breakpoints que GRID_CLASS de ProductGrid (1 col mobile, 2 sm,
+// 3 lg, 4 xl) — sin esto next/image asume sizes="100vw" con fill y pide
+// la imagen más grande posible aunque la tarjeta ocupe 1/4 del ancho.
+const CARD_IMAGE_SIZES =
+  "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw";
+
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   return (
     <Link
       href={`/producto/${product.id}`}
@@ -20,7 +29,12 @@ export function ProductCard({ product }: ProductCardProps) {
       className="group flex flex-col overflow-hidden rounded-lg border border-border transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-square bg-muted">
-        <ProductImage src={product.image_url} alt={product.title} />
+        <ProductImage
+          src={product.image_url}
+          alt={product.title}
+          sizes={CARD_IMAGE_SIZES}
+          priority={priority}
+        />
         {!product.is_active ? (
           <span className="absolute left-2 top-2 rounded bg-foreground/80 px-2 py-0.5 text-xs font-medium text-background">
             No disponible

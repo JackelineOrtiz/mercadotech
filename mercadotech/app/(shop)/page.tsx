@@ -31,6 +31,17 @@ function HomePageContent() {
           <ErrorState onRetry={retry} />
         ) : (
           <>
+            {/* Fase 7.2 (performance): se probó priorityCount={4} acá (la
+                spec pide priority SOLO en la portada above-the-fold de la
+                home) y se REVIRTIÓ — medido en docs/PERFORMANCE.md: el
+                elemento LCP real de esta página es el título (texto) de
+                la primera tarjeta, no su imagen, así que precargar 4
+                imágenes con priority no ayuda al LCP y compite por ancho
+                de banda con el JS de hidratación que sí lo determina
+                (84 → 82 medido, reproducido 2 veces). El prop `priority`
+                queda disponible en ProductImage/ProductCard/ProductGrid
+                para si en el futuro la portada cambia a tener una imagen
+                real above-the-fold. */}
             <ProductGrid items={items} loading={loading} />
             <Pagination page={page} total={total} onPageChange={setPage} />
           </>

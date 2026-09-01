@@ -32,7 +32,7 @@ export function SourcesList({ sources, className }: SourcesListProps) {
                   [{source.index}]
                 </span>
                 <div className="relative size-10 shrink-0 overflow-hidden rounded border border-border">
-                  <ProductImage src={source.image_url ?? null} alt={source.title} />
+                  <ProductImage src={source.image_url ?? null} alt={source.title} sizes="40px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium">{source.title}</p>

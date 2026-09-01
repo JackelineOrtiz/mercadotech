@@ -13,6 +13,10 @@ export interface ProductImageProps {
   height?: number;
   sizes?: string;
   className?: string;
+  // Fase 7.2 (performance): next/image no precarga sin esto — úsalo SOLO
+  // en las tarjetas above-the-fold de la portada (home), nunca en toda la
+  // grilla (competiría con la imagen real de LCP, decisión de la spec).
+  priority?: boolean;
 }
 
 // El seed de la Fase 2.5 guarda rutas de Storage que nunca se subieron
@@ -26,6 +30,7 @@ export function ProductImage({
   height,
   sizes,
   className,
+  priority = false,
 }: ProductImageProps) {
   const [failed, setFailed] = useState(false);
 
@@ -53,6 +58,7 @@ export function ProductImage({
       width={fill ? undefined : width}
       height={fill ? undefined : height}
       sizes={sizes}
+      priority={priority}
       className={cn("object-cover", className)}
       onError={() => setFailed(true)}
     />

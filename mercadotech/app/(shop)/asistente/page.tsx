@@ -4,6 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useChat } from "@/hooks/useChat";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { LoadingState } from "@/components/shared/LoadingState";
+// Fase 7.2 (performance): se probó `dynamic import` acá (candidato
+// preaprobado por la spec) y se REVIRTIÓ — medido en docs/PERFORMANCE.md:
+// ChatWindow no tiene dependencia de terceros pesada, y el wrapper de
+// `dynamic()` agregó más First Load JS del que ahorró (307 kB → 311 kB).
+// Regla de la fase: sin mejora medible (acá, directamente peor), se
+// revierte y queda anotado como intentado.
 
 const SUGGESTIONS = [
   "¿qué laptop me recomiendas para diseño por menos de S/ 3,500?",

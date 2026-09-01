@@ -26,7 +26,13 @@ export function ProductGallery({ images, productTitle }: ProductGalleryProps) {
   return (
     <div className="flex flex-col gap-3" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
-        <ProductImage src={current?.image_url ?? null} alt={productTitle} />
+        {/* md:grid-cols-2 en app/(shop)/producto/[id] — ocupa ~50% en
+            desktop, 100% en mobile (Fase 7.2, ajuste de sizes). */}
+        <ProductImage
+          src={current?.image_url ?? null}
+          alt={productTitle}
+          sizes="(min-width: 768px) 50vw, 100vw"
+        />
       </div>
       {sorted.length > 1 ? (
         <div className="flex gap-2">
@@ -42,7 +48,7 @@ export function ProductGallery({ images, productTitle }: ProductGalleryProps) {
                 i === index ? "border-primary" : "border-transparent",
               )}
             >
-              <ProductImage src={image.image_url} alt="" />
+              <ProductImage src={image.image_url} alt="" sizes="64px" />
             </button>
           ))}
         </div>

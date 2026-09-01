@@ -8,6 +8,12 @@ export interface ProductGridProps {
   loading: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  // Fase 7.2 (performance, decisión de la spec: priority SOLO en la
+  // portada above-the-fold de la home): cuántas tarjetas iniciales
+  // reciben `priority` en su ProductImage. 0 en todo el resto de
+  // ProductGrid (categoría, búsqueda, tienda, favoritos) — solo la home
+  // lo pasa.
+  priorityCount?: number;
 }
 
 const GRID_CLASS = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
@@ -18,6 +24,7 @@ export function ProductGrid({
   loading,
   emptyTitle = "No encontramos productos",
   emptyDescription = "Prueba ajustando los filtros o la búsqueda.",
+  priorityCount = 0,
 }: ProductGridProps) {
   if (loading) {
     return (
@@ -36,8 +43,8 @@ export function ProductGrid({
 
   return (
     <div className={GRID_CLASS} data-testid="product-grid">
-      {items.map((product) => (
-        <ProductCard key={product.id} product={product} />
+      {items.map((product, i) => (
+        <ProductCard key={product.id} product={product} priority={i < priorityCount} />
       ))}
     </div>
   );

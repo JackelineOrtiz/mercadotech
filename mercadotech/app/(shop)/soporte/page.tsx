@@ -8,6 +8,9 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { TICKET_STATUS_BADGE_VARIANT, TICKET_STATUS_LABELS } from "@/lib/constants/tickets";
+// Fase 7.2 (performance): mismo componente que /asistente — dynamic
+// import probado y REVERTIDO, ver ese comentario y docs/PERFORMANCE.md
+// (308 kB → 312 kB, peor, no mejor).
 
 export default function SoportePage() {
   const { user, initializing } = useAuth();

@@ -83,7 +83,7 @@ export function ProductsTable({ products, onToggleActive, onDelete }: ProductsTa
             <TableCell>
               <div className="flex items-center gap-3">
                 <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-border">
-                  <ProductImage src={product.image_url} alt={product.title} />
+                  <ProductImage src={product.image_url} alt={product.title} sizes="48px" />
                 </div>
                 <span className="font-medium">{product.title}</span>
               </div>
