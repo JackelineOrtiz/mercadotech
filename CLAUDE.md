@@ -33,7 +33,7 @@ metodología y errores típicos de debugging → [`docs/DEBUGGING.md`](docs/DEBU
   bitácora, checklists).
 - `mercadotech/`: el proyecto Next.js (se crea en la Fase 2.1); `mcp/`
   dentro de ahí es el servidor MCP (Sesión 5), paquete npm propio.
-- `.claude/skills/`: 5 Skills de gobernanza — `mercadotech-architecture-
+- `.claude/skills/`: 6 Skills de gobernanza — `mercadotech-architecture-
   enforcer` (gate previo a crear/mover archivos), `mercadotech-code-
   reviewer` (informe /10 después de escribir), `mercadotech-automatic-
   validator` (veredicto binario al cerrar una tarea — corre `npm run
@@ -41,9 +41,13 @@ metodología y errores típicos de debugging → [`docs/DEBUGGING.md`](docs/DEBU
   `mercadotech-tech-lead` (scorecard de diseño), `mercadotech-governance-
   orchestrator` (corre enforcer → reviewer → validator en una sola
   invocación y entrega el mensaje de commit listo — reemplaza invocar
-  las 3 a mano). Las 5 REPORTAN, nunca editan código. Norma del ciclo al
-  cerrar cualquier feature: invocar `mercadotech-governance-orchestrator`
-  (equivale a reviewer → correcciones → validator, en orden).
+  las 3 a mano), `mercadotech-ci-watch` (después de un `git push`, hace
+  polling real de GitHub Actions y reporta el resultado real — verde con
+  los jobs, o rojo con el log real del step que falló). Las 6 REPORTAN,
+  nunca editan código. Norma del ciclo al cerrar cualquier feature:
+  invocar `mercadotech-governance-orchestrator` (equivale a reviewer →
+  correcciones → validator, en orden), y después del push,
+  `mercadotech-ci-watch` para confirmar el CI real.
 
 ## Principio rector
 

@@ -232,7 +232,7 @@ reiniciado, login real, click real en el link "Mi perfil" del Navbar
 del Navbar se actualizó AL TOQUE, sin reload — confirmado leyendo
 `img.src` del propio DOM antes/después.
 
-### Producto inexistente: mensaje claro en vez de error genérico (commit pendiente)
+### Producto inexistente: mensaje claro en vez de error genérico (commit `98de907`)
 
 Siguiendo la re-verificación de caminos de fallo por rol, un id de
 producto con formato válido pero inexistente (o de un producto inactivo
@@ -247,6 +247,51 @@ mostrar un `EmptyState` "Producto no encontrado", mismo patrón que
 de OTRO vendedor (que RLS ya oculta) también cae en esta rama — "no
 encontrado" es la respuesta de seguridad correcta ahí (no confirma que
 existe pero está oculto).
+
+### 5ta Skill de gobernanza: `mercadotech-governance-orchestrator` (commit `ff73f9f`)
+
+Pedido explícito del usuario: analizar qué Skills nuevas agilizarían el flujo de trabajo. De 5
+ideas propuestas, se construyó la de mayor impacto — un orquestador que colapsa la secuencia
+manual `architecture-enforcer` → `code-reviewer` → `automatic-validator` (invocada a mano 9 veces
+en el trabajo ad-hoc de esta sección) en una sola invocación que decide sola el orden y cuándo
+detenerse.
+
+Probada en vivo contra un cambio real (ver próxima entrada) — esa prueba encontró un hallazgo real
+sobre la skill recién creada: `automatic-validator` es (a propósito) un portero binario sin
+excepciones, y bloqueaba el ciclo completo por 2 fallos de `test:e2e` que resultaron ser deuda
+PRE-EXISTENTE sin relación con el diff evaluado. Se verificó de verdad, no se asumió: `git stash
+-u` (confirmando con `git status --short` que el working tree quedó limpio), se re-corrió el test
+fallido contra el código SIN el cambio (mismo resultado: 2 fallos idénticos), y `git stash pop`
+restauró el cambio. Se agregó un paso al flujo del orquestador para automatizar exactamente esa
+verificación: cuando el único motivo de `VALIDACIÓN FALLIDA` es `test`/`test:e2e`, reproduce el
+fallo con y sin el diff antes de decidir si bloquea — pre-existente confirmado no bloquea (se
+flaggea aparte vía `spawn_task`), una regresión real sigue bloqueando igual que cualquier otro
+fallo (lint/type-check/build/enforcer/crítico del reviewer siempre bloquean, sin excepción).
+
+Hallazgo adicional (no una skill, un dato real del propio repo): el job `e2e` del CI real
+(GitHub Actions) solo corre Playwright en Chromium — el bug de kanban por teclado de abajo nunca
+disparó una alarma en CI porque CI ni siquiera prueba firefox/webkit, donde sí falla. Documentado
+como contexto, no corregido (fuera del pedido original).
+
+### Título dinámico de pestaña en `/producto/[id]` (commit `f81d030`) — primera prueba real del orquestador
+
+Hallazgo real, encontrado auditando el repo antes de construir la skill de arriba: TODAS las
+páginas de la app comparten el mismo `<title>` "MercadoTech" del layout raíz — cada `page.tsx` es
+`"use client"`, y Next.js no permite exportar `metadata`/`generateMetadata` desde un Client
+Component. Con varias pestañas de producto abiertas era imposible distinguir cuál era cuál.
+
+`app/(shop)/producto/[id]/page.tsx` volvió a ser Server Component: solo exporta
+`generateMetadata` (llama a `getProductById` — mismo service, sin cambios — con el cliente
+SERVIDOR de `lib/supabase/server.ts`, ya existente) y renderiza `<ProductoPageClient/>` (nuevo,
+misma lógica que tenía `page.tsx` antes, solo renombrado el export). Verificado en vivo en el
+navegador: pestaña real con el nombre del producto ("Laptop Lenovo IdeaPad Slim 3... | MercadoTech")
+y, para un id inexistente, "Producto no encontrado | MercadoTech" — consistente con el `EmptyState`
+del cuerpo. CI real: success (run `33519497025`).
+
+Deuda encontrada durante el code review (no bloqueante, no corregida en este cambio): el `catch`
+de `generateMetadata` no distingue `PGRST116` de un error de red genérico — ambos caen al mismo
+título "Producto no encontrado", inconsistente con `hooks/useProduct.ts` que sí hace esa
+distinción para el cuerpo de la página.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
