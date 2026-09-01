@@ -11,7 +11,12 @@ completas y commiteadas — checkout transaccional, panel del vendedor con
 drag & drop, pipeline RAG (pgvector + búsqueda semántica + asistentes),
 gobernanza (4 Skills en `.claude/skills/` + servidor MCP de solo lectura
 en `mcp/`), y red de pruebas (Vitest + Playwright + CI en GitHub Actions).
-Sesión 7 en adelante (performance, secretos, deploy — SIN CI, ya está):
+Sesión 7 (performance, secretos, deploy — SIN CI, ya está de la Sesión 6):
+Fases 7.2-7.4 completas — Core Web Vitals medidos y optimizados donde el
+caso lo justificaba, gobernanza de variables/secretos, proyecto Supabase
+de producción migrado, app real desplegada en Vercel
+(`https://mercadotech-pi.vercel.app`) y branch protection activo en
+`main` (ver sección "Flujo de Git" más abajo). Fase 7.5 (docs finales):
 pendiente. Trabajo ad-hoc fuera del temario (pedido explícito del
 usuario, no de una sesión): 404/error boundary, recuperación de
 contraseña, "Mi perfil", storefront público del vendedor (`/tienda/
@@ -179,6 +184,24 @@ de npm que generó `package-lock.json` en este entorno (`npm@10.8.2`) —
 no se toca a la ligera: cambiarlo sin regenerar el lockfile con esa misma
 versión reproduce el error "Missing from lock file" en CI (ver
 `docs/DEBUGGING.md`).
+
+### Flujo de Git (Fase 7.4 — branch protection activo desde 2026-09-01)
+
+`main` tiene branch protection real en GitHub: PR obligatorio, checks `checks` y `e2e` del CI en
+verde obligatorios, **sin bypass ni para administradores** (`enforce_admins: true`). Ya NO se puede
+pushear directo a `main` — ni siquiera el dueño del repo. Flujo desde acá:
+
+```bash
+git checkout -b nombre-de-la-rama
+# commits...
+git push -u origin nombre-de-la-rama
+gh pr create --fill    # o con --title/--body específicos
+# esperar CI real en la PR (mismo criterio de mercadotech-ci-watch, pero contra la PR)
+gh pr merge --squash    # o el método que se prefiera, una vez los checks estén verdes
+```
+
+Cada deploy a producción en Vercel sale de un merge a `main` (Git integration, Fase 7.4) — no hay
+manera de desplegar sin pasar por un PR con CI verde.
 
 ### Servidor MCP (`mcp/`, Sesión 5)
 
