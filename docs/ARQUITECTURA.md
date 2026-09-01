@@ -1,13 +1,15 @@
 # Arquitectura de MercadoTech
 
-Documento de referencia para cualquier desarrollador que se une al proyecto.
-Describe lo que existe hoy en el repositorio al cierre de la Sesión 2
-(infraestructura: proyecto Next.js, base de datos, RLS, Storage, seed y
-validación). No hay pantallas, hooks de negocio ni endpoints todavía — eso
-empieza en la Sesión 3.
+Documento de referencia para cualquier desarrollador que se una al proyecto. Describe lo que
+existe HOY en el repositorio, al cierre de la Sesión 7 (Fase 7.5) — infraestructura (Sesión 2),
+frontend completo (Sesión 3), pipeline RAG (Sesión 4), gobernanza + MCP (Sesión 5), testing + CI
+(Sesión 6) y deploy real a producción (Sesión 7). Si algo acá difiere de una spec de sesión, gana
+el código real, con nota. Sesión 8 (agente de voz) es lo único que todavía no existe — ver
+[§14](#14-qué-sigue-sesión-8).
 
 ## Tabla de contenidos
 
+**Infraestructura (Sesión 2)**
 1. [Arquitectura general y capas](#1-arquitectura-general-y-capas)
 2. [Organización de carpetas](#2-organización-de-carpetas)
 3. [Modelo relacional](#3-modelo-relacional)
@@ -16,7 +18,14 @@ empieza en la Sesión 3.
 6. [Flujo de autenticación](#6-flujo-de-autenticación)
 7. [Estrategia de escalabilidad](#7-estrategia-de-escalabilidad)
 8. [Políticas RLS por tabla](#8-políticas-rls-por-tabla)
-9. [Qué sigue](#9-qué-sigue)
+
+**Producto y operación (Sesiones 3-7)**
+9. [Frontend y flujos de usuario (Sesión 3)](#9-frontend-y-flujos-de-usuario-sesión-3)
+10. [Pipeline RAG (Sesión 4)](#10-pipeline-rag-sesión-4)
+11. [Gobernanza y servidor MCP (Sesión 5)](#11-gobernanza-y-servidor-mcp-sesión-5)
+12. [Testing y CI (Sesión 6)](#12-testing-y-ci-sesión-6)
+13. [Deploy a producción (Sesión 7)](#13-deploy-a-producción-sesión-7)
+14. [Qué sigue (Sesión 8)](#14-qué-sigue-sesión-8)
 
 ---
 
@@ -64,32 +73,43 @@ importa directamente**.
 
 ## 2. Organización de carpetas
 
+Estado real al cierre de la Fase 7.5 (ver [§9](#9-frontend-y-flujos-de-usuario-sesión-3) en
+adelante para el detalle de cada capa):
+
 ```
 mercadotech/
 ├── app/
-│   ├── (auth)/          login, registro (Sesión 3) — vacío hoy
-│   ├── (shop)/          catálogo, producto, carrito, pedidos (Sesión 3) — vacío hoy
-│   ├── (seller)/        panel del vendedor (Sesión 3) — vacío hoy
-│   └── api/v1/          Route Handlers server-only — vacío hoy
-├── components/          presentación pura — vacío hoy
-├── hooks/                estado de cliente — vacío hoy
-├── services/              lógica de negocio, cliente inyectable — vacío hoy
+│   ├── (auth)/          login, registro, recuperar/actualizar contraseña
+│   ├── (shop)/          home, buscar, categoría, producto, carrito, pedidos, favoritos,
+│   │                    perfil, tienda/[sellerId], asistente, soporte
+│   ├── (seller)/        /vendedor/{productos,publicar,pedidos}
+│   ├── (admin)/         /admin, /admin/usuarios
+│   ├── api/v1/          chat, reindex, search/semantic — los 3 únicos Route Handlers
+│   ├── not-found.tsx · error.tsx · global-error.tsx
+│   └── layout.tsx       AuthProvider + CartProvider en la raíz
+├── components/          catalog/, product/, cart/, orders/, seller/, chat/, admin/, auth/,
+│                        layout/, shared/, ui/ (shadcn/Base UI) — presentación pura
+├── hooks/                ~19 hooks (useAuth, useCart, useProducts, useSellerOrders...)
+├── services/              ~15 services + su test junto a cada uno
 ├── lib/
-│   ├── supabase/           client.ts · server.ts · middleware.ts · admin.ts
-│   ├── constants/            roles.ts (roles y estados, único tunable de esta fase)
-│   ├── validators/             vacío — validación framework-agnóstica (Sesión 3+)
-│   ├── ai/                       vacío — Sesión 4
-│   ├── voice/                      vacío — Sesión 8
-│   └── utils.ts                     helper cn() de shadcn/ui
-├── types/                vacío — tipos de dominio + database.ts generado (Sesión 3)
-├── middleware.ts         raíz, usa lib/supabase/middleware.ts
-├── components.json       config de shadcn/ui (sin componentes instalados aún)
-├── .env.example
+│   ├── supabase/           client.ts · server.ts · admin.ts (middleware.ts se fusionó en
+│   │                       middleware.ts raíz — ver docs/DEPLOY.md §2.3, Bug 5)
+│   ├── ai/                   embeddings.ts · completion.ts · prompts.ts · context-builder.ts
+│   ├── voice/                 vacío — Sesión 8
+│   ├── constants/               roles.ts · catalog.ts · orders.ts · product.ts · ai.ts · tickets.ts
+│   └── utils.ts
+├── types/                tipos de dominio + database.ts (generado)
+├── middleware.ts         raíz — auth guard, runtime Edge (patch-package parchea un bug real
+│                         de Next.js que rompe el middleware en el Edge real de Vercel)
+├── e2e/                  Playwright — pages/ (Page Object Model), tests/, fixtures/, data/
+├── patches/              patch-package — next+15.5.23.patch
+├── scripts/              index-all.ts (indexado del pipeline RAG)
+├── mcp/                  servidor MCP, paquete npm propio (ver §11)
 └── supabase/
-    ├── migrations/       16 migraciones, fuente de verdad del esquema
+    ├── migrations/       26 migraciones, fuente de verdad del esquema
     ├── schema.sql        copia de referencia (NO fuente de verdad)
     ├── policies.sql      copia de referencia (NO fuente de verdad)
-    ├── seed.sql          datos de prueba
+    ├── seed.sql          datos de laboratorio (local + CI, NUNCA producción)
     └── tests/
         └── rls-validation.sql
 ```
@@ -389,7 +409,7 @@ SQL completa: [`supabase/policies.sql`](../mercadotech/supabase/policies.sql)
 
 | Tabla | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| `profiles` | El dueño ve su perfil; el admin ve cualquiera. | Nadie por este camino — lo crea el trigger de signup. | El dueño edita su perfil, pero no puede cambiarse el rol a sí mismo. | Nadie — borrar un perfil rompería el historial de pedidos/reseñas. |
+| `profiles` | El dueño ve su perfil; el admin ve cualquiera. | Nadie por este camino — lo crea el trigger de signup. | El dueño edita su perfil, pero no puede cambiarse el rol a sí mismo; un admin puede editar CUALQUIER perfil, incluido el rol de otro usuario (Fase 7.5, `/admin/usuarios`). | Nadie — borrar un perfil rompería el historial de pedidos/reseñas. |
 | `categories` | El catálogo de categorías es público. | Solo un admin da de alta categorías. | Solo un admin. | Solo un admin. |
 | `products` | Público si está activo; el vendedor también ve los suyos inactivos. | Un vendedor publica productos a su propio nombre. | Solo el vendedor dueño edita su producto. | Solo el vendedor dueño lo retira. |
 | `product_images` | Las mismas reglas de visibilidad que el producto al que pertenecen. | Solo el vendedor dueño del producto sube imágenes. | Solo el vendedor dueño. | Solo el vendedor dueño. |
@@ -410,12 +430,114 @@ propia carpeta raíz (`{uid}/...`); en `product-images` además se exige
 `role = 'seller'`. Detalle completo en
 [`supabase/policies.sql`](../mercadotech/supabase/policies.sql).
 
-## 9. Qué sigue
+## 9. Frontend y flujos de usuario (Sesión 3)
 
-- **Sesión 3** — todas las pantallas (catálogo, producto, carrito, panel
-  del vendedor), los `hooks`/`services` reales, y el drag & drop de galería
-  de imágenes y kanban de pedidos.
-- **Sesión 4** — `pgvector`, embeddings de los `support_articles`
-  existentes, búsqueda semántica y el asistente de compras/soporte.
-- **Sesión 8** — agente de voz de soporte sobre `lib/voice/`, usando
-  `support_tickets`/`ticket_messages` como backend de conversación.
+Tres roles, cada uno con sus rutas y su propio guard:
+
+- **Comprador** (`(shop)`) — home, `/buscar` (filtros en la URL vía `searchParams`, nunca en
+  estado local), `/categoria/[slug]`, `/producto/[id]` (Server Component: exporta
+  `generateMetadata` con título dinámico, renderiza un Client Component con la lógica real),
+  `/carrito`, `/pedidos`/`/pedidos/[id]`, `/favoritos`, `/perfil`, `/tienda/[sellerId]`
+  (storefront público de un vendedor).
+- **Vendedor** (`(seller)`, bajo `/vendedor/...`) — `/vendedor/productos` (CRUD + galería de
+  imágenes con drag & drop, `@dnd-kit`), `/vendedor/pedidos` (kanban con drag & drop entre
+  estados, `useSellerOrders` valida las transiciones — la política RLS de `orders` es más
+  permisiva que la UI a propósito).
+- **Admin** (`(admin)`, bajo `/admin/...`) — usuarios y estadísticas, guard estricto
+  (`role === 'admin'`, sin el bypass "or admin" que sí tiene `(seller)`).
+
+Estado global compartido entre grupos de rutas hermanos: `AuthProvider`/`CartProvider` viven en la
+raíz (`app/layout.tsx`), con Context + hook (`useAuth`/`useCart`) — cada consumidor lee la MISMA
+instancia, no una copia por componente (bug real encontrado y corregido, ver `docs/BITACORA.md`).
+
+`numeric(12,2)` de Postgres llega como `string` desde PostgREST: cada `service` lo convierte con
+`Number()` antes de que un componente lo reciba — los componentes siempre trabajan con `number`.
+
+## 10. Pipeline RAG (Sesión 4)
+
+`pgvector` + embeddings + búsqueda semántica, detrás de un asistente conversacional en dos
+contextos (`/asistente` para compras, `/soporte` citando `support_articles`). Diagrama completo,
+casos de prueba y calibración → [`RAG.md`](RAG.md); acá solo la forma de la arquitectura:
+
+```
+hook (useChat/useSemanticSearch)
+  → fetch a app/api/v1/{chat,search/semantic,reindex}   (únicos 3 Route Handlers del proyecto)
+  → lib/ai/embeddings.ts   (SDK @huggingface/inference, NO el router REST — no soporta
+                             feature-extraction, lección de ReadHub incorporada desde el inicio)
+  → match_knowledge()      (función Postgres, SECURITY INVOKER, similitud coseno sobre
+                             knowledge_embeddings con índice HNSW)
+  → lib/ai/context-builder.ts   (arma el contexto: top K, presupuesto de caracteres)
+  → lib/ai/completion.ts + prompts.ts   (fetch al router de chat de Hugging Face)
+```
+
+Todos los tunables (modelo de embeddings, modelo de chat, dimensión del vector, top K, threshold
+de similitud, presupuesto de contexto) en `lib/constants/ai.ts`, cada uno con el porqué en su
+comentario — nunca hardcodeados en el pipeline.
+
+`scripts/index-all.ts` indexa productos activos + artículos publicados en `knowledge_embeddings`
+(requiere `HUGGINGFACEHUB_API_TOKEN`); el servidor MCP (§11) y las Route Handlers llaman
+`match_knowledge()` con el cliente ADMIN — necesitó sus propios `GRANT` explícitos
+(`service_role` no tenía SELECT/EXECUTE por default, ver `docs/BITACORA.md` Sesión 5).
+
+## 11. Gobernanza y servidor MCP (Sesión 5)
+
+**6 Skills** en `.claude/skills/` (todas REPORTAN, ninguna edita código):
+`mercadotech-architecture-enforcer` (gate de ubicación/dependencias antes de escribir código),
+`mercadotech-code-reviewer` (informe /10 después), `mercadotech-automatic-validator` (veredicto
+binario — corre `lint`/`type-check`/`build`/`test` siempre, `test:e2e` si `supabase status` está
+arriba), `mercadotech-tech-lead` (scorecard de diseño, no automática), `mercadotech-governance-
+orchestrator` (corre enforcer → reviewer → validator en una invocación), `mercadotech-ci-watch`
+(polling real de GitHub Actions después de un push). Detalle de cada una → `CLAUDE.md`.
+
+**Servidor MCP** (`mercadotech/mcp/`, paquete npm propio, `@modelcontextprotocol/sdk` sobre
+stdio) — 10 Tools + Resources + Prompts de solo lectura sobre el catálogo, pedidos y RAG. Es un
+consumidor más de `services/` y `lib/ai/`: nunca reimplementa lógica de negocio, nunca importa de
+`app/`/`components/`/`hooks/`. Sus clientes Supabase se construyen en `mcp/src/context.ts` (fábrica
+`{anon, admin}` por llamada) en vez de importar `lib/supabase/admin.ts`, porque `server-only`
+revienta bajo Node/tsx puro (mismo motivo que `scripts/`). Detalle completo →
+[`mcp/README.md`](../mercadotech/mcp/README.md).
+
+## 12. Testing y CI (Sesión 6)
+
+**Vitest** (unit) — junto al archivo que prueban (`cart.service.ts` ↔ `cart.service.test.ts`).
+Los tests de `services/` inyectan el cliente Supabase por parámetro (nunca `vi.mock` de
+`lib/supabase/*`); `lib/ai/*` es la única excepción mockeada por módulo, al no tener cliente
+inyectable. 218 tests, 23 archivos.
+
+**Playwright** (E2E, `e2e/`) — Page Object Model (`e2e/pages/`), fixtures y datos reales
+(`e2e/fixtures/`, `e2e/data/`), `data-testid` en kebab-case con prefijo de dominio
+(`cart-checkout`, `kanban-column-pagado`). Requiere `supabase db reset` fresco antes. 24 tests.
+
+**CI** (`.github/workflows/ci.yml`, GitHub Actions) — dos jobs en cada push/PR: `checks` (lint +
+type-check + unit + type-check de `mcp/`, sin Docker) y `e2e` (Supabase efímero vía CLI +
+Playwright en Chromium — el navegador real que corre CI, no firefox/webkit). Cero secretos: el
+`e2e` levanta su propio Supabase local desde cero por corrida. `package.json`'s
+`packageManager` está pineado a la versión real de npm que generó el lockfile.
+
+## 13. Deploy a producción (Sesión 7)
+
+**Producción:** [mercadotech-pi.vercel.app](https://mercadotech-pi.vercel.app) — Supabase
+(`MercadoTech Datapath`) migrado, Vercel conectado por Git integration (sin CLI en el flujo
+normal, sin secretos en GitHub Actions), branch protection real en `main` (`checks` + `e2e`
+obligatorios en verde, sin bypass ni para admins — `enforce_admins: true`).
+
+El primer deploy real destapó 6 bugs reales, ninguno visible en local ni en CI (ninguno de los dos
+ejecuta el runtime Edge real de Vercel ni su pipeline de build tal cual): resolución de alias en
+el bundler de Edge Functions, `__dirname` inexistente en el Edge real (resuelto con un patch de
+`patch-package` sobre un archivo vendorizado de Next.js, no con un cambio de runtime — se probó y
+se descartó migrar a Node.js Middleware, con soporte todavía incompleto en 15.5.23), y el proyecto
+de Vercel nunca había quedado configurado como framework "Next.js". Post-mortem completo, con cada
+causa raíz y su fix real → [`DEPLOY.md`](DEPLOY.md) §2.3.
+
+Performance (Fase 7.2): medición real con Lighthouse contra el build de producción, no `next dev`.
+El objetivo (Lighthouse ≥ 90 en home/catálogo) no se alcanzó — causa raíz real y medida: la app es
+100% client-rendered, el LCP depende de que cargue/hidrate/pida datos el JS antes de poder pintar
+(Render Delay ~90% del LCP). Arreglarlo de raíz es SSR/streaming real, fuera del alcance de "sesión
+de hardening" — deuda técnica documentada, no escondida → [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## 14. Qué sigue (Sesión 8)
+
+- **Agente de voz de soporte** sobre `lib/voice/` (hoy vacío) — STT/TTS vía Web Speech API del
+  navegador detrás de una interfaz `VoiceProvider` intercambiable, orquestando herramientas sobre
+  `support_tickets`/`ticket_messages` como backend de conversación. Es la única pieza de la
+  planeación original (`docs/PLAN_CURSO.md`) que todavía no existe en el código.

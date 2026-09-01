@@ -428,6 +428,49 @@ C (branch protection) cerradas y verificadas contra sistemas reales, no simulada
 (propio o de Claude) pasa por rama → PR → CI real en verde → merge. Documentado en `CLAUDE.md`
 §"Flujo de Git".
 
+### Fase 7.5 — Documentación final + panel de admin ahora puede cambiar roles
+
+Fase 7.5 de `MercadoTech_sesion7.md`: `docs/PLAN_CURSO.md` (el README viejo, movido intacto con
+nota de contexto — decisión 11), `README.md` nuevo de producto (stack, diagrama de capas, flujo
+RAG, puesta en marcha local, comandos, testing, deploy, URL de producción, estructura comentada),
+`docs/ARQUITECTURA.md` actualizado con 5 secciones nuevas (Frontend S3, RAG S4, Gobernanza+MCP S5,
+Testing+CI S6, Deploy S7 — antes solo cubría la era S2), `docs/DEPLOY.md` completado (smoke tests +
+rollback).
+
+**Smoke test real, no simulado**: al armar la sección de smoke tests se encontró que producción
+estaba completamente vacía (sin categorías, sin productos, sin FAQ) — solo se habían corrido las
+migraciones, nunca un seed real. Se creó `supabase/seed.prod.sql` (8 categorías + 10 artículos de
+FAQ, sin usuarios/productos falsos — el primer vendedor y producto de producción los crea un
+usuario real por la UI, parte del propio smoke test) y se corrió a mano en el SQL Editor de
+Supabase (con permiso explícito del usuario). Indexado con `scripts/index-all.ts` contra
+producción — encontró y confirmó un bug real del propio script:
+`process.loadEnvFile(".env.local")` sobreescribe cualquier variable pasada por línea de comando,
+así que apuntar el script a producción exige cambiar `.env.local` temporalmente, nunca exportar
+las vars inline y listo (documentado en `docs/DEPLOY.md`).
+
+**Segundo bug real encontrado en el smoke test**: el link de confirmación de registro en
+producción apuntaba a `http://localhost:3000` — el proyecto de Supabase de producción nunca tuvo
+su "Site URL" de Auth actualizada al pasar de local a producción. Fix: Site URL + Redirect URLs en
+Supabase Auth, más `NEXT_PUBLIC_SITE_URL` agregada en Vercel (Production) — la variable había
+quedado deliberadamente sin cargar en la Fase 7.4 porque todavía no se conocía la URL final.
+Redeploy real para que tome efecto.
+
+**Feature nueva fuera del alcance original de la Fase 7.5** (spec dice "no introducir features
+nuevas" — decisión explícita del usuario de todas formas, al toparse con que el panel de admin
+`/admin/usuarios` era de solo lectura y la única forma de aprobar un vendedor era SQL directo):
+migración `20260901150000_admin_can_update_user_role.sql` (policy `profiles_update_admin` +
+`grant update (role)` — el trigger `protect_profiles_role` de la Fase 2.3 YA distinguía admin vs.
+no-admin, faltaban estas dos piezas para que tuviera efecto real), `updateUserRole` en
+`admin.service.ts`, `changeRole` en `useAdminUsers` (optimista + rollback, mismo patrón que
+`useSellerOrders.move`), selector de rol real en `UsersTable` (oculto en la fila del propio admin,
+para evitar autodegradarse por error de click). Ciclo completo real:
+architecture-enforcer/code-reviewer (9/10) → validator (lint/type-check/build/220 tests/24 e2e,
+todos ok) → verificado EN VIVO en el navegador local (login real como `admin1@mercadotech.test`,
+cambio de rol real de "Ana Lucía Torres" de comprador a vendedor, confirmado con reload que
+persistió en la base).
+
+Detalle completo de los 3 hallazgos → `docs/DEPLOY.md`.
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

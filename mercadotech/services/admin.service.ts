@@ -88,3 +88,20 @@ export async function listUsers(supabase: Client = createClient()): Promise<Prof
   // getPublicUrl por cada fila para un dato que la UI no usa.
   return data.map((row) => ({ ...row, role: row.role as UserRole, avatar_url: null }));
 }
+
+// Fase 7.5 (fuera del PDF de la spec, pedido explícito del usuario): antes
+// de esto, /admin/usuarios era de solo lectura y la ÚNICA forma de aprobar
+// un vendedor era tocar profiles.role directo por SQL — ni un admin real
+// podía hacerlo por la interfaz. profiles_update_admin + el GRANT de
+// "role" (migración 20260901150000) habilitan esto a nivel de RLS/columna;
+// protect_profiles_role (Fase 2.3) sigue siendo quien de verdad bloquea el
+// cambio si is_admin() da false — este service no reimplementa esa
+// validación, confía en que Postgres la aplique.
+export async function updateUserRole(
+  userId: string,
+  role: UserRole,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+  if (error) throw error;
+}
