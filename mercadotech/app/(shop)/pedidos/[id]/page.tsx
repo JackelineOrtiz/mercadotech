@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 export default function PedidoDetallePage() {
   const params = useParams<{ id: string }>();
@@ -48,6 +49,12 @@ export default function PedidoDetallePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: "Mis pedidos", href: "/pedidos" },
+          { label: `Pedido #${order.id.slice(0, 8)}` },
+        ]}
+      />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pedido #{order.id.slice(0, 8)}</h1>
         <OrderStatusBadge status={order.status} />

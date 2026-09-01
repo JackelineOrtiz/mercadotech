@@ -8,6 +8,7 @@ import { useProductForm } from "@/hooks/useProductForm";
 import { ProductForm } from "@/components/seller/ProductForm";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 const VALIDATION_ERROR_MESSAGE = "Revisa los campos del formulario.";
 
@@ -41,6 +42,12 @@ export default function VendedorEditarProductoPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumbs
+        items={[
+          { label: "Mis productos", href: "/vendedor/productos" },
+          { label: form.values.title || "Editar producto" },
+        ]}
+      />
       <h1 className="text-2xl font-bold">Editar producto</h1>
       <ProductForm
         value={form.values}
