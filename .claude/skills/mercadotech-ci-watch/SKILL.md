@@ -49,12 +49,25 @@ el link".
    `gh run watch`, sin resumir de más — el usuario ya vio ejemplos de "job en Xs" en corridas
    anteriores y espera ese nivel de detalle real, no un simple "pasó".
 
-4. **Si termina en fallo**: identificar el/los job(s) y step(s) reales que fallaron desde la salida
-   de `gh run watch`, y traer el extracto real del log de ESE step específico (`gh run view
-   <run-id> --log-failed`, o `gh run view --job <job-id> --log` si hace falta más contexto) — nunca
-   inventar ni resumir el mensaje de error, pegar el texto real.
+4. **Si termina en `cancelled`** (no `failure`): antes de reportarlo como problema, verificar si es
+   una cancelación real (alguien la canceló a mano, o falló un timeout) o el patrón normal de
+   concurrencia del workflow (`.github/workflows/ci.yml` tiene `concurrency: cancel-in-progress:
+   true` — un push nuevo a la misma rama cancela automáticamente el run anterior que seguía en
+   curso). Hallazgo real: pushear 2 commits seguidos genera un run "cancelled" para el primero, que
+   NO es un fallo — el run del segundo push ya cubre ambos commits. Verificar con `gh run list
+   --branch <rama>` si existe un run MÁS NUEVO en la misma rama: si sí, ese es el que hay que
+   monitorear (volver al paso 1 con ese run-id, no reportar el cancelado como resultado final). Solo
+   si no hay un run más nuevo cubriéndolo, tratar el `cancelled` como fallo real y seguir al punto 5.
 
-5. **Nunca declarar éxito sin haber corrido el comando real** — ni asumir que "seguramente pasó"
+5. **Si termina en fallo real** (`failure`, o un `cancelled` sin un run más nuevo que lo cubra):
+   identificar el/los job(s) y step(s) reales que fallaron desde la salida de `gh run watch`, y
+   traer el extracto real del log de ESE step específico (`gh run view <run-id> --log-failed`, o
+   `gh run view --log --job <job-id>` si hace falta más contexto, filtrando al step relevante —
+   `--log-failed` puede no imprimir nada si el job fue cancelado a mitad de un step en vez de
+   fallar explícitamente en uno, en cuyo caso usar `--log --job <job-id>`) — nunca inventar ni
+   resumir el mensaje de error, pegar el texto real.
+
+6. **Nunca declarar éxito sin haber corrido el comando real** — ni asumir que "seguramente pasó"
    porque los checks locales ya habían pasado antes de pushear. El veredicto de esta Skill es
    siempre el de GitHub Actions, nunca una inferencia.
 
@@ -73,7 +86,11 @@ JOBS
 ✓ <job 2> en <duración>
 ...
 
-[si fallo]
+[si cancelled cubierto por un run más nuevo — no reportar como fallo, seguir el run nuevo y usar
+ ese resultado como el reporte final; opcionalmente una línea aclarando la cancelación por
+ concurrencia]
+
+[si fallo real]
 ✗ CI · <run-id> — failure
 
 JOBS
