@@ -174,6 +174,32 @@ activa, y se confirmó que "Algo salió mal" renderiza por debajo del
 overlay de desarrollo de Next — luego se revirtió el cambio (`git diff`
 limpio antes de commitear).
 
+### MobileNav.tsx (commit pendiente) — segundo hallazgo de la re-auditoría
+
+Verificando `global-error.tsx` en viewport mobile con `admin1` logueado,
+dos hallazgos reales más, encontrados en el navegador (no en tests):
+
+1. `MobileNav.tsx` (Sesión 3) tiene su PROPIA lista de links, separada
+   de `UserMenu.tsx` — al agregar "Mi perfil" y "Panel admin" a
+   `UserMenu` en las iniciativas de arriba, nunca se replicaron acá. Un
+   usuario en mobile no tenía forma de llegar a esas dos pantallas
+   nuevas. Corregido: mismos dos links, mismas condiciones (`user`/
+   `role === 'admin'`).
+2. Los 11 `SheetClose` que renderizan `<Link>` en este archivo (Catálogo,
+   Favoritos, Carrito, Mi perfil, Mis pedidos, Asistente, Soporte, Panel
+   vendedor, Panel admin, cada categoría, Ingresar) no tenían
+   `nativeButton={false}` — confirmado en la consola REAL del navegador:
+   "Base UI: A component that acts as a button expected a native
+   `<button>`...", 10 veces (una por instancia visible en ese momento).
+   Preexistente desde que existe `MobileNav.tsx` (Sesión 3), no
+   introducido en esta sesión — solo heredado al agregar 2 links más.
+   Mismo fix que ya usaba `UserMenu.tsx` para su propio botón con
+   `<Link>`. Verificado antes/después: 10 warnings -> 0, con el servidor
+   dev reiniciado limpio (mismo problema de chunks de Turbopack
+   obsoletos ya documentado en esta bitácora — la primera verificación,
+   con el servidor viejo, mostró el warning idéntico incluso DESPUÉS del
+   fix, hasta reiniciar).
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184
