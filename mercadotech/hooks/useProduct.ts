@@ -9,10 +9,20 @@ export function useProduct(productId: string, userId?: string) {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Hallazgo real de la re-auditoría ad-hoc (ver docs/BITACORA.md): un id
+  // con formato válido pero inexistente (o de un producto ya eliminado)
+  // mostraba el ErrorState genérico "Algo salió mal / Reintentar" —
+  // reintentar no ayuda si el producto no existe. PGRST116 es el código
+  // real que PostgREST devuelve cuando .single() no encuentra filas
+  // (verificado en vivo contra el REST API real) — se distingue acá para
+  // que la página pueda mostrar un EmptyState "no encontrado" en vez del
+  // error genérico, mismo patrón que ya usa /tienda/[sellerId].
+  const [notFound, setNotFound] = useState(false);
 
   const fetchProduct = useCallback(() => {
     setLoading(true);
     setError(null);
+    setNotFound(false);
     Promise.all([getProductById(productId), getProductImages(productId)])
       .then(([productData, imagesData]) => {
         setProduct(productData);
@@ -20,7 +30,11 @@ export function useProduct(productId: string, userId?: string) {
         setLoading(false);
       })
       .catch((err) => {
-        setError((err as Error).message);
+        if ((err as { code?: string }).code === "PGRST116") {
+          setNotFound(true);
+        } else {
+          setError((err as Error).message);
+        }
         setLoading(false);
       });
   }, [productId]);
@@ -38,5 +52,5 @@ export function useProduct(productId: string, userId?: string) {
     registerView(productId, userId).catch(() => {});
   }, [productId, userId]);
 
-  return { product, images, loading, error, retry: fetchProduct };
+  return { product, images, loading, error, notFound, retry: fetchProduct };
 }

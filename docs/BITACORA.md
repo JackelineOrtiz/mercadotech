@@ -200,7 +200,7 @@ dos hallazgos reales más, encontrados en el navegador (no en tests):
    con el servidor viejo, mostró el warning idéntico incluso DESPUÉS del
    fix, hasta reiniciar).
 
-### useAuth como Context (commit pendiente) — pedido explícito del usuario de re-validar caminos felices/fallo con imagen real y cada rol
+### useAuth como Context (commit `0727b5e`) — pedido explícito del usuario de re-validar caminos felices/fallo con imagen real y cada rol
 
 Verificando en vivo la subida de avatar con una imagen real (no un mock),
 usando `next/link` para navegar (sin reload completo) del Navbar a
@@ -231,6 +231,22 @@ reiniciado, login real, click real en el link "Mi perfil" del Navbar
 (navegación de CLIENTE, sin reload), subida real de imagen, y el avatar
 del Navbar se actualizó AL TOQUE, sin reload — confirmado leyendo
 `img.src` del propio DOM antes/después.
+
+### Producto inexistente: mensaje claro en vez de error genérico (commit pendiente)
+
+Siguiendo la re-verificación de caminos de fallo por rol, un id de
+producto con formato válido pero inexistente (o de un producto inactivo
+ajeno, oculto por RLS) mostraba el `ErrorState` genérico "Algo salió
+mal / Reintentar" — reintentar no ayuda si el producto no existe.
+`hooks/useProduct.ts` distingue ahora el código real que devuelve
+PostgREST cuando `.single()` no encuentra filas (`PGRST116`, confirmado
+contra el REST API real:
+`{"code":"PGRST116","details":"The result contains 0 rows"...}`) para
+mostrar un `EmptyState` "Producto no encontrado", mismo patrón que
+`/tienda/[sellerId]`. Efecto colateral correcto: un producto inactivo
+de OTRO vendedor (que RLS ya oculta) también cae en esta rama — "no
+encontrado" es la respuesta de seguridad correcta ahí (no confirma que
+existe pero está oculto).
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

@@ -16,6 +16,7 @@ import { QuestionsSection } from "@/components/product/QuestionsSection";
 import { ReviewsSection } from "@/components/product/ReviewsSection";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default function ProductoPage() {
   const params = useParams<{ id: string }>();
@@ -23,7 +24,7 @@ export default function ProductoPage() {
   const router = useRouter();
   const { user, profile } = useAuth();
 
-  const { product, images, loading, error, retry } = useProduct(productId, user?.id);
+  const { product, images, loading, error, notFound, retry } = useProduct(productId, user?.id);
   // Se llama SIEMPRE (regla de los hooks), con seller_id undefined hasta
   // que product resuelva — useSellerPublicProfile ya maneja ese caso sin
   // disparar ningún fetch.
@@ -54,6 +55,15 @@ export default function ProductoPage() {
 
   if (loading) {
     return <LoadingState rows={6} />;
+  }
+
+  if (notFound) {
+    return (
+      <EmptyState
+        title="Producto no encontrado"
+        description="Este producto no existe o ya no está disponible."
+      />
+    );
   }
 
   if (error || !product) {
