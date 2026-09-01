@@ -6,7 +6,7 @@ import { ORDER_ENVIADO_SELLER1 } from "@/e2e/data/orders";
 
 // [RAZONAMIENTO]
 // - buyer1 en /vendedor/productos: el middleware solo bloquea anónimos
-//   (middleware.ts) — un comprador CON sesión SÍ llega a la
+//   (lib/supabase/middleware.ts) — un comprador CON sesión SÍ llega a la
 //   ruta a nivel HTTP. El guard real vive en el cliente
 //   (app/(seller)/layout.tsx): cuando profile.role no es seller/admin,
 //   muestra toast.error("Necesitas una cuenta de vendedor") y redirige a

@@ -10,7 +10,7 @@ import {
 } from "@/components/auth/ChangePasswordForm";
 import { LoadingState } from "@/components/shared/LoadingState";
 
-// Bajo PROTECTED_PREFIXES (middleware.ts) — a diferencia de
+// Bajo PROTECTED_PREFIXES (lib/supabase/middleware.ts) — a diferencia de
 // actualizar-contrasena, esta ruta SÍ necesita sesión normal para
 // llegar, así que el middleware alcanza para protegerla.
 export default function PerfilPage() {

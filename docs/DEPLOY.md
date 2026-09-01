@@ -123,11 +123,21 @@ supabase db push
 invoker` con su propio `set search_path`**: calificar SIEMPRE `extensions.vector`, nunca confiar
 en `extra_search_path` de `config.toml` — ese ajuste no viaja a producción.
 
-### 2.3 Primer deploy a Vercel (Tarea B) — dos bugs reales encontrados y corregidos
+### 2.3 Primer deploy a Vercel (Tarea B) — 5 bugs reales, resumen ejecutivo
 
 Import del repo (`Add New... → Project`, acceso limitado solo a `mercadotech` en el GitHub App de
 Vercel) con **Root Directory = `mercadotech`** (obligatorio: el proyecto Next.js no vive en la
 raíz del repo) y las 4 variables de la tabla de la Sección 1 cargadas antes del primer deploy.
+
+**Resumen para quien no quiera leer los 5 bugs completos**: el middleware terminó QUEDÁNDOSE en el
+runtime **Edge** (el default de siempre, el camino trillado que usa toda la comunidad) — el Bug 1
+(alias sin resolver) sí quedó arreglado tal cual. El Bug 2 (`__dirname`) se probó arreglar primero
+migrando al runtime Node.js (GA nuevo de Next.js 15.2/15.5) — esa migración generó los Bugs 3 y 4,
+cada vez más profundos, y se **abandonó completa** cuando el propio launcher de Vercel resultó
+incompatible con cómo Next.js arma el `NextRequest` real. El fix real y definitivo del Bug 2 fue
+otro: un patch de una sola línea con `patch-package` sobre un archivo vendorizado de Next.js — ver
+Bug 5. Los Bugs 3 y 4 quedan documentados igual, tal cual pasaron, como registro honesto de la
+exploración descartada — no como algo que siga vigente en el código.
 
 #### Bug 1 (build-time): alias `@/*` sin resolver en el bundler de Edge Functions
 
@@ -260,6 +270,63 @@ resultante con Node (`node -e "import('./middleware.js')"` dentro de
 `.vercel/output/functions/middleware.func/mercadotech/`) — carga limpio, sin ningún error de
 resolución (antes fallaba acá mismo). `npm run lint`/`type-check`/`build` exit 0; `npm run test`
 218/218; `npm run test:e2e` 24/24 (`supabase db reset` fresco).
+
+#### Bug 5 (runtime, el que hizo abandonar Node.js Middleware): el launcher real de Vercel exige `export default` — pero eso rompe el `NextRequest` real
+
+El deploy real del Bug 4 seguía en 500, ahora con `No exports found in module "middleware.js". Did
+you forget to export a function or a server?` — el launcher de Node.js Functions de Vercel no
+reconocía el export NOMBRADO `middleware` (el que usa el propio Next.js para procesar el archivo
+como middleware durante `next build`) como un entry point válido.
+
+Se probó agregar `export default middleware` además del nombrado (con permiso explícito del
+usuario, se desplegó un **Preview** real con `vercel deploy --prebuilt` para poder probarlo con
+curl sin tocar producción — más rápido y confiable que seguir el ciclo push→esperar→revisar contra
+`main`). Con el default agregado, el "No exports found" desapareció, pero salió un problema más
+profundo: `TypeError: Cannot read properties of undefined (reading 'getAll')` en
+`request.cookies.getAll()` — el launcher genérico de Vercel invoca el `export default` con un
+`Request` de la Web API cruda, NO con el `NextRequest` enriquecido (con `.cookies`, `.nextUrl`,
+etc.) que arma Next.js internamente cuando procesa middleware por su cuenta.
+
+**Decisión (con el usuario, explícita)**: se abandonó la migración a Node.js Middleware acá. Seguir
+hubiera significado reconstruir a mano el wrapping de `NextRequest` que Next.js debería armar solo
+— alcance abierto e incierto, para una feature GA hace muy poco (15.2/15.5) con soporte todavía
+incompleto para este caso. Se revirtió TODO lo de los Bugs 2-4 (`config.runtime`, el archivo
+fusionado, `"type": "module"`, la extensión de `next/server`) de vuelta al estado de después del
+Bug 1 — runtime Edge, `updateSession` de nuevo en `lib/supabase/middleware.ts` como el resto de los
+"4 clientes de Supabase" de `CLAUDE.md`.
+
+#### Bug 2, resolución final: `patch-package` sobre el archivo vendorizado real
+
+De vuelta en Edge, se probó primero un shim con `webpack.DefinePlugin` para `__dirname` en
+`next.config.ts` (técnica estándar para este tipo de problema) — **no funcionó**: confirmado que
+`middleware.js` en el bundle real de Vercel pesa apenas ~530 bytes y hace `require` real a archivos
+separados (no es un bundle único inline, ni siquiera en Edge) — el archivo con `__dirname`
+(`node_modules/next/dist/compiled/ua-parser-js/ua-parser.js`) es un archivo YA COMPILADO que
+Next.js trae de fábrica, copiado tal cual al deploy — nunca pasa por el webpack de nuestro propio
+proyecto, así que `DefinePlugin` no lo toca.
+
+Leyendo el archivo real, la única referencia a `__dirname` es:
+
+```js
+if(typeof __nccwpck_require__!=="undefined")__nccwpck_require__.ab=__dirname+"/";
+```
+
+Boilerplate del bundler `ncc` (el que usa Next.js internamente para pre-empaquetar sus propias
+dependencias vendorizadas) que fija una "asset base path" — inerte para `ua-parser-js`, que es JS
+puro sin ningún asset nativo que cargar relativo a esa ruta. Fix real: `patch-package` — se parchea
+esa única línea (`__nccwpck_require__.ab="/"`, sin `__dirname`) y se agrega
+`"postinstall": "patch-package"` a `package.json` para que el parche se reaplique solo en cada
+instalación real de `node_modules` (CI, Vercel, cualquier clon nuevo del repo). Verificado con una
+reinstalación completa desde cero (`rm -rf node_modules && npm install`) que el `postinstall`
+reaplica el parche solo, sin intervención manual.
+
+Verificación completa: `vercel build` real — cero `__dirname` en todo `middleware.func/` (antes
+aparecía). Deploy real a **Preview** (`vercel deploy --prebuilt`) — sin ningún error en los logs
+(nivel `info`, no `error`; antes crasheaba en cada request). `npm run lint`/`type-check`/`build`
+exit 0; `npm run test` 218/218; `npm run test:e2e` 24/24 (`supabase db reset` fresco).
+
+Al terminar toda esta exploración: `vercel logout`, se borraron `.vercel/` y `.env.local`
+generados por la CLI (ya en `.gitignore`).
 
 ### 2.4 Pendiente
 

@@ -27,7 +27,7 @@ export default function SellerLayout({
   const { profile, initializing } = useAuth();
   const canSell = profile ? profile.role === "seller" || profile.role === "admin" : false;
 
-  // El middleware (middleware.ts) ya bloquea a los anónimos en
+  // El middleware (lib/supabase/middleware.ts) ya bloquea a los anónimos en
   // /vendedor/*; esto cubre el caso más fino que el middleware no resuelve
   // (no consulta profiles): un buyer CON sesión que no es vendedor.
   useEffect(() => {

@@ -382,7 +382,27 @@ para importar un SUBPATH del paquete (`next/server`, no la raíz). Fix: `next/se
 Node (`node -e "import(...)"`) ANTES de pushear — cargó limpio. `npm run test` 218/218,
 `npm run test:e2e` 24/24.
 
-Detalle completo de los 4 bugs → `docs/DEPLOY.md` §2.3.
+**Bug 5, el que hizo abandonar Node.js Middleware**: seguía en 500, ahora `No exports found in
+module... Did you forget to export a function or a server?` — el launcher no reconocía el export
+nombrado `middleware`. Se agregó `export default middleware` (con permiso explícito del usuario, se
+usó un deploy **Preview** real vía `vercel deploy --prebuilt` para poder probar con curl más rápido
+que el ciclo push→esperar) — el "No exports found" desapareció, pero salió algo más profundo: el
+launcher genérico invoca el default export con un `Request` web crudo, no el `NextRequest`
+enriquecido de Next.js — `TypeError: Cannot read properties of undefined (reading 'getAll')` en
+`request.cookies`. Decisión explícita con el usuario: abandonar Node.js Middleware acá (reconstruir
+el wrapping de `NextRequest` a mano es alcance abierto e incierto) y volver a Edge.
+
+**Bug 2, resolución final** (de vuelta en Edge): un shim con `webpack.DefinePlugin` para `__dirname`
+no funcionó — confirmado que el archivo con `__dirname` (`ua-parser.js` vendorizado) nunca pasa por
+el webpack de nuestro proyecto, se copia tal cual al deploy. La única referencia real es boilerplate
+inerte del bundler `ncc` (`__nccwpck_require__.ab=__dirname+"/"`, una "asset base path" que
+`ua-parser-js` nunca usa). Fix real: `patch-package` — se parchea esa línea y se agrega
+`"postinstall": "patch-package"` a `package.json` para que se reaplique en cada instalación real
+(verificado con `rm -rf node_modules && npm install` desde cero). Verificación completa: `vercel
+build` real sin ningún `__dirname` en el bundle; deploy Preview real sin errores en los logs; `npm
+run test` 218/218, `npm run test:e2e` 24/24.
+
+Detalle completo de los 5 bugs (incluidos los 2 explorados y descartados) → `docs/DEPLOY.md` §2.3.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
