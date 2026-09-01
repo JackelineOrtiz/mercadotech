@@ -1,122 +1,38 @@
-"use client";
+import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import { getProductById } from "@/services/product.service";
+import { ProductoPageClient } from "./ProductoPageClient";
 
-import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
-import { useProduct } from "@/hooks/useProduct";
-import { useSellerPublicProfile } from "@/hooks/useSellerPublicProfile";
-import { useQuestions } from "@/hooks/useQuestions";
-import { useReviews } from "@/hooks/useReviews";
-import { useFavorite } from "@/hooks/useFavorite";
-import { useCart } from "@/hooks/useCart";
-import { ProductGallery } from "@/components/product/ProductGallery";
-import { ProductInfo } from "@/components/product/ProductInfo";
-import { BuyBox } from "@/components/product/BuyBox";
-import { QuestionsSection } from "@/components/product/QuestionsSection";
-import { ReviewsSection } from "@/components/product/ReviewsSection";
-import { LoadingState } from "@/components/shared/LoadingState";
-import { ErrorState } from "@/components/shared/ErrorState";
-import { EmptyState } from "@/components/shared/EmptyState";
+// Server Component: solo resuelve el <title> de la pestaña, todo el resto
+// de la pantalla sigue siendo 100% cliente (ProductoPageClient, sin
+// cambios de lógica). getProductById ya es un service puro e inyectable
+// (convención de la Sesión 3) — acá se lo llama con el cliente SERVIDOR
+// (lib/supabase/server.ts, ya existía para el middleware/SSR) en vez del
+// cliente de browser, así que sigue respetando las mismas políticas RLS
+// (products_select_active_or_own): un producto inactivo ajeno da PGRST116
+// acá igual que en el hook del cliente, y cae al catch de abajo.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const supabase = await createClient();
+    const product = await getProductById(id, supabase);
+    return {
+      title: `${product.title} | MercadoTech`,
+      description: product.description ?? undefined,
+    };
+  } catch {
+    // Id con formato válido pero inexistente (PGRST116) o cualquier otro
+    // error de red: no vale la pena romper el render por un título — cae
+    // a un título genérico y ProductoPageClient ya maneja el EmptyState
+    // real de "producto no encontrado" en el cuerpo de la página.
+    return { title: "Producto no encontrado | MercadoTech" };
+  }
+}
 
 export default function ProductoPage() {
-  const params = useParams<{ id: string }>();
-  const productId = params.id;
-  const router = useRouter();
-  const { user, profile } = useAuth();
-
-  const { product, images, loading, error, notFound, retry } = useProduct(productId, user?.id);
-  // Se llama SIEMPRE (regla de los hooks), con seller_id undefined hasta
-  // que product resuelva — useSellerPublicProfile ya maneja ese caso sin
-  // disparar ningún fetch.
-  const { profile: sellerProfile } = useSellerPublicProfile(product?.seller_id);
-  const {
-    questions,
-    loading: questionsLoading,
-    ask,
-    answer,
-  } = useQuestions(productId);
-  const {
-    reviews,
-    average,
-    count,
-    canReview,
-    loading: reviewsLoading,
-    submit: submitReview,
-  } = useReviews(productId, user?.id);
-  const { isFavorite, toggle: toggleFavorite } = useFavorite(productId, user?.id);
-  // useCart() lee el CartProvider montado en (shop)/layout.tsx (Fase 6.5) —
-  // sin esto, agregar acá no actualizaba el contador del Navbar (hallazgo
-  // real, ver el comentario de cabecera de hooks/useCart.tsx).
-  const { add: addToCart } = useCart();
-
-  function requireLogin() {
-    router.push(`/login?redirectTo=/producto/${productId}`);
-  }
-
-  if (loading) {
-    return <LoadingState rows={6} />;
-  }
-
-  if (notFound) {
-    return (
-      <EmptyState
-        title="Producto no encontrado"
-        description="Este producto no existe o ya no está disponible."
-      />
-    );
-  }
-
-  if (error || !product) {
-    return <ErrorState onRetry={retry} />;
-  }
-
-  const isOwner = profile?.id === product.seller_id;
-
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <ProductGallery images={images} productTitle={product.title} />
-        <div className="flex flex-col gap-4">
-          <ProductInfo product={product} sellerName={sellerProfile?.display_name} />
-          <BuyBox
-            product={product}
-            hasSession={!!user}
-            isOwner={isOwner}
-            isFavorite={isFavorite}
-            onToggleFavorite={toggleFavorite}
-            onAddToCart={async (quantity) => {
-              try {
-                await addToCart(product.id, quantity);
-                toast.success("Agregado al carrito.");
-              } catch (err) {
-                toast.error((err as Error).message);
-              }
-            }}
-            onRequireLogin={requireLogin}
-          />
-        </div>
-      </div>
-
-      <QuestionsSection
-        questions={questions}
-        hasSession={!!user}
-        isOwner={isOwner}
-        loading={questionsLoading}
-        onAsk={(question) => ask(user!.id, question)}
-        onAnswer={answer}
-        onRequireLogin={requireLogin}
-      />
-
-      <ReviewsSection
-        reviews={reviews}
-        average={average}
-        count={count}
-        canReview={canReview.allowed}
-        loading={reviewsLoading}
-        onSubmit={({ rating, comment }) =>
-          submitReview({ buyerId: user!.id, rating, comment })
-        }
-      />
-    </div>
-  );
+  return <ProductoPageClient />;
 }
