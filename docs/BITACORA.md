@@ -371,7 +371,18 @@ Vercel — repuesto con las credenciales públicas del Supabase LOCAL, pero el t
 se perdió y el usuario tiene que volver a cargarlo. Verificado con `vercel build` real, `npm run
 build && npm run start` real sirviendo 200, `npm run test` 218/218, `npm run test:e2e` 24/24.
 
-Detalle completo de los 3 bugs → `docs/DEPLOY.md` §2.3.
+**Bug 4 (runtime, el último)**: seguía en 500, ahora `Cannot find module '.../node_modules/next/
+server'... Did you mean to import "next/server.js"?`. Mismo error que ya había reproducido
+localmente antes de pushear el Bug 3, y que descarté sin evidencia como "posible falso positivo de
+mi harness" — error de proceso real, anotado para no repetirlo: un test local que reproduce un
+fallo no se descarta sin confirmar que el test está mal. Causa raíz: `node_modules/next/
+package.json` no tiene campo `"exports"` — sin eso, el ESM real de Node exige extensión explícita
+para importar un SUBPATH del paquete (`next/server`, no la raíz). Fix: `next/server` →
+`next/server.js` en `middleware.ts`. Esta vez se verificó ejecutando el bundle real de Vercel con
+Node (`node -e "import(...)"`) ANTES de pushear — cargó limpio. `npm run test` 218/218,
+`npm run test:e2e` 24/24.
+
+Detalle completo de los 4 bugs → `docs/DEPLOY.md` §2.3.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

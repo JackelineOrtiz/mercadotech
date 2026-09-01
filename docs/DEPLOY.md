@@ -231,6 +231,36 @@ Verificación final: `vercel build` real compila y arma un `middleware.func` de 
 `npm run build && npm run start` REAL (no solo `next dev`) sirve `200` en `/`; `npm run test`
 218/218; `npm run test:e2e` 24/24 con `supabase db reset` fresco.
 
+#### Bug 4 (runtime, el último): `next/server` también necesita extensión — el paquete `next` no tiene `exports` map
+
+El deploy real del Bug 3 seguía en 500, ahora con:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/mercadotech/node_modules/next/server'
+imported from /var/task/mercadotech/middleware.js
+Did you mean to import "next/server.js"?
+```
+
+Esta vez SÍ era el mismo error que ya había reproducido localmente con `node -e "import(...)"`
+contra el bundle real de `vercel build` — en el ciclo anterior lo descarté como "puede ser mi
+harness, no la realidad" y pusheé igual sin confirmarlo contra un deploy real. Craso error de
+proceso: si un test local reproduce un fallo real, no se descarta sin evidencia de que el test está
+mal — se investiga. Anotado para no repetirlo.
+
+Causa raíz: `node_modules/next/package.json` no tiene campo `"exports"` (confirmado leyéndolo) — sin
+ese mapa, el resolutor ESM real de Node exige la extensión explícita para importar un SUBPATH del
+paquete (`next/server`, no el paquete raíz), y `node_modules/next/server.js` es un archivo real, no
+uno que haga falta transpilar (a diferencia del Bug 3, que era sobre NUESTRO propio `.ts`). Fix:
+`import ... from "next/server"` → `import ... from "next/server.js"` en `middleware.ts`. Nota:
+`@supabase/ssr` también carece de `"exports"`, pero se importa por la RAÍZ del paquete (no un
+subpath), que resuelve por el campo `main` sin necesitar extensión — no le aplica el mismo problema.
+
+Verificación, esta vez completa antes de pushear: `vercel build` real + ejecución REAL del bundle
+resultante con Node (`node -e "import('./middleware.js')"` dentro de
+`.vercel/output/functions/middleware.func/mercadotech/`) — carga limpio, sin ningún error de
+resolución (antes fallaba acá mismo). `npm run lint`/`type-check`/`build` exit 0; `npm run test`
+218/218; `npm run test:e2e` 24/24 (`supabase db reset` fresco).
+
 ### 2.4 Pendiente
 
 _Falta: branch protection (Tarea C, al cierre de esta fase), smoke tests post-deploy (Sección 3),

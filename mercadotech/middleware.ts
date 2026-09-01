@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server.js";
 import { createServerClient } from "@supabase/ssr";
 
 // updateSession vivía en lib/supabase/middleware.ts (mismo patrón que los
