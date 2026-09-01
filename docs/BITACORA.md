@@ -325,6 +325,21 @@ con `search_path` restringido antes de tocar el archivo real, y validado con `su
 completo (27/27 migraciones). Re-corrido `supabase db push`: éxito, producción migrada. Detalle
 completo → `docs/DEPLOY.md` §2.
 
+Tarea B (primer deploy a Vercel): el import y las variables de entorno salieron bien (Root
+Directory `mercadotech`), pero el primer deploy real falló en el empaquetado de Edge Functions —
+`The Edge Function "middleware" is referencing unsupported modules: @/lib/supabase/middleware` —
+con un `next build` local y de CI totalmente limpios. Causa raíz real (confirmada buscando el
+error exacto, no adivinada): bug conocido de Turbopack en builds de producción
+([vercel/next.js#87737](https://github.com/vercel/next.js/issues/87737)) — referencia módulos
+internos por un hash atado a la estructura de `node_modules` del momento del build, que no
+coincide entre el `npm install` local/CI y el que corre el pipeline de Vercel, y solo se manifiesta
+en el empaquetado real de Edge Functions (nunca en `next build` sin desplegar). Fix: `package.json`
+`"build"` deja de usar `--turbopack` (Webpack para producción; `dev` se queda con Turbopack).
+Verificado con el ciclo completo (lint/type-check/build/test 218 + test:e2e 24, todos ok) antes de
+commitear. Hallazgo colateral real: el bundle compartido bajó de 209 kB (Turbopack, el número que
+documenta `docs/PERFORMANCE.md`) a 102 kB (Webpack) — ese doc queda con el número desactualizado,
+anotado como deuda, no bloqueante. Detalle completo → `docs/DEPLOY.md` §2.3.
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

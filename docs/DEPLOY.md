@@ -123,10 +123,48 @@ supabase db push
 invoker` con su propio `set search_path`**: calificar SIEMPRE `extensions.vector`, nunca confiar
 en `extra_search_path` de `config.toml` — ese ajuste no viaja a producción.
 
-### 2.3 Pendiente
+### 2.3 Primer deploy a Vercel (Tarea B) — bug real encontrado y corregido
 
-_Falta: cuenta de Vercel conectada a GitHub (Tarea B), import del repo, variables de entorno
-cargadas a mano (ver Sección 1), branch protection (Tarea C, al cierre de esta fase)._
+Import del repo (`Add New... → Project`, acceso limitado solo a `mercadotech` en el GitHub App de
+Vercel) con **Root Directory = `mercadotech`** (obligatorio: el proyecto Next.js no vive en la
+raíz del repo) y las 4 variables de la tabla de la Sección 1 cargadas antes del primer deploy.
+
+**El primer deploy falló** en la etapa de empaquetado de funciones (el build en sí — `next build`
+— terminó limpio, sin errores, generando las 24 rutas):
+
+```
+The Edge Function "middleware" is referencing unsupported modules:
+- __vc__ns__/0/mercadotech/middleware.js: @/lib/supabase/middleware
+```
+
+`middleware.ts`/`lib/supabase/middleware.ts` usan exactamente el patrón oficial de `@supabase/ssr`
+para Next.js Middleware (Edge Runtime) — no hay nada exótico ahí. Causa raíz real, confirmada
+buscando el error exacto: un bug conocido de **Turbopack en el build de producción**
+(`next build --turbopack`, package.json Fase 2.1) — Turbopack referencia módulos internos por un
+hash atado a la estructura de `node_modules` en el momento del build; cuando Vercel reinstala
+dependencias en su propio pipeline (mismo `package-lock.json`, pero árbol de `node_modules`
+generado de nuevo), el hash no coincide y el empaquetador de Edge Functions no puede resolver el
+módulo — aunque localmente y en CI (que solo corren `next build` sin desplegar a un Edge Runtime
+real) nunca se manifestó. Ver [vercel/next.js#87737](https://github.com/vercel/next.js/issues/87737),
+mismo síntoma documentado por otros equipos.
+
+Fix: `package.json` — `"build": "next build --turbopack"` → `"build": "next build"` (Webpack para
+el build de PRODUCCIÓN; `"dev": "next dev --turbopack"` se deja intacto, Turbopack sigue sirviendo
+bien para desarrollo local). Verificado antes de commitear: `npm run build` compila limpio con
+Webpack, `npm run lint`/`type-check` exit 0, `npm run test` 218/218, `npm run test:e2e` 24/24
+(`supabase db reset` fresco).
+
+**Hallazgo colateral real** (no buscado, medido al correr el build con Webpack): el "First Load JS
+shared by all" bajó de 209 kB (Turbopack, el número que documenta `docs/PERFORMANCE.md` de la Fase
+7.2) a **102 kB** (Webpack) — una diferencia real de bundling entre ambos, no ruido de medición.
+`docs/PERFORMANCE.md` queda con ese número desactualizado (medido contra un build que ya no es el
+que se despliega); no se re-corrió Lighthouse contra el build nuevo en esta fase — deuda técnica
+anotada, no bloqueante para el deploy.
+
+### 2.4 Pendiente
+
+_Falta: branch protection (Tarea C, al cierre de esta fase), smoke tests post-deploy (Sección 3),
+rollback (Sección 4)._
 
 ## 3. Smoke tests post-deploy (Fase 7.4)
 
