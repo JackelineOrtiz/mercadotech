@@ -355,7 +355,23 @@ Middleware, GA desde Next.js 15.2). Confirmado en el artefacto real: `.vc-config
 `runtime: "edge"` a `runtime: "nodejs24.x"`. Verificado con `vercel build` real + ciclo completo
 (lint/type-check/test 218/test:e2e 24, todos ok) antes de commitear.
 
-Detalle completo de ambos bugs → `docs/DEPLOY.md` §2.3.
+**Bug 3 (runtime, otro más)**: con el runtime ya en Node.js, seguía el 500 pero con error distinto
+y mucho más claro: `SyntaxError: Cannot use import statement outside a module` — el output de
+"Node.js Middleware" de Next.js 15.5.23 no bundlea como Edge, deja archivos `.js` separados con
+imports reales entre sí, y sin `"type": "module"` en el `package.json` más cercano (el nuestro,
+copiado literal dentro del bundle) Node los trata como CommonJS. Se agregó `"type": "module"` — pero
+eso destapó un requisito más profundo e incompatible con Webpack: Node ESM real exige extensión
+`.js` en imports relativos, Webpack no resuelve un `.js` que apunta a un `.ts`. Fix final: se
+fusionó `updateSession` (antes en `lib/supabase/middleware.ts`, sin otros importadores) DENTRO de
+`middleware.ts` — sin imports relativos propios entre archivos, el conflicto desaparece para los
+dos lados. Excepción documentada al patrón de "4 clientes de Supabase" de `CLAUDE.md`, motivada por
+una limitación real y verificada, no por preferencia. Efecto colateral del propio debugging: se
+borró por error el `.env.local` real de desarrollo local al limpiar artefactos de la CLI de
+Vercel — repuesto con las credenciales públicas del Supabase LOCAL, pero el token de Hugging Face
+se perdió y el usuario tiene que volver a cargarlo. Verificado con `vercel build` real, `npm run
+build && npm run start` real sirviendo 200, `npm run test` 218/218, `npm run test:e2e` 24/24.
+
+Detalle completo de los 3 bugs → `docs/DEPLOY.md` §2.3.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

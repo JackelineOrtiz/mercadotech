@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { profile, initializing } = useAuth();
   const isAdmin = profile?.role === "admin";
 
-  // El middleware (lib/supabase/middleware.ts) ya bloquea a los anónimos
+  // El middleware (middleware.ts) ya bloquea a los anónimos
   // en /admin/*; esto cubre el caso más fino que el middleware no resuelve
   // (no consulta profiles): un buyer o seller CON sesión que no es admin.
   useEffect(() => {

@@ -182,6 +182,55 @@ warnings de runtime deprecado; `npm run lint`/`type-check` exit 0; `npm run test
 auth del middleware). `.vercel/` y `.env.local` generados por la CLI se descartaron después
 (`rm -rf`, ya estaban en `.gitignore`) y se cerró la sesión de `vercel logout` al terminar.
 
+#### Bug 3 (runtime): ESM real de Node — `"type": "module"` faltante + import sin extensión
+
+Con el runtime ya en Node.js (Bug 2 resuelto), cada request seguía tirando 500
+`MIDDLEWARE_INVOCATION_FAILED`, ahora con un error distinto y mucho más claro:
+
+```
+SyntaxError: Cannot use import statement outside a module
+Failed to load the ES module: /var/task/mercadotech/middleware.js.
+Make sure to set "type": "module" in the nearest package.json
+```
+
+Causa real: a diferencia del runtime Edge (que arma un bundle único), el output de "Node.js
+Middleware" de Next.js 15.5.23 NO bundlea — dentro de `middleware.func/` deja `middleware.ts` y sus
+imports relativos como archivos `.js` separados con imports reales entre sí (confirmado
+inspeccionando `.vercel/output/functions/middleware.func/mercadotech/`, que incluye una copia
+literal de nuestro `package.json` real — es "el `package.json` más cercano" que menciona el error).
+Sin `"type": "module"` ahí, Node interpreta el archivo como CommonJS y el `import` (que Next.js no
+transforma a `require`) revienta.
+
+Fix intermedio: agregar `"type": "module"` a `mercadotech/package.json` (verificado antes: sin
+archivos `.js` sueltos en la raíz que dependieran de CommonJS — todos los configs ya son
+`.ts`/`.mjs`/`.mts`). Con esto el `SyntaxError` desapareció, pero apareció el SIGUIENTE problema, a
+un nivel más profundo: el resolutor ESM real de Node (a diferencia de "bundler" en `tsconfig.json`)
+exige la extensión `.js` explícita en los imports relativos — `./lib/supabase/middleware` sin
+extensión no resuelve. Escribir la extensión en la fuente (`./lib/supabase/middleware.js`) rompe en
+la otra punta: Webpack (el bundler real de `next build`) no resuelve un `.js` que apunta a un
+archivo `.ts` real — "Module not found". Los dos requisitos (ESM real de Node vs. Webpack) son
+incompatibles entre sí para DOS archivos separados con un import relativo entre ellos.
+
+Fix final: `updateSession` (antes en `lib/supabase/middleware.ts`) se fusionó directamente DENTRO
+de `middleware.ts` — confirmado que ningún otro archivo lo importaba. Con todo en un solo archivo
+no queda ningún import relativo propio que resolver, y el problema desaparece para los dos lados a
+la vez. Se actualizaron los 4 comentarios que referenciaban la ruta vieja (`app/(seller)/layout.tsx`,
+`app/(shop)/asistente/page.tsx`, `app/(admin)/layout.tsx`, `e2e/tests/seller-negative.spec.ts`).
+Excepción real y documentada al patrón de "4 clientes de Supabase" de `CLAUDE.md` (`client`/
+`server`/`middleware`/`admin`) — motivada por una limitación real y verificada de esta feature tan
+nueva de Next.js, no por preferencia de diseño.
+
+**Hallazgo adicional durante esta verificación** (no relacionado al bug): al limpiar los archivos
+que generó la CLI de Vercel (`.env.local`, `.vercel/`) se borró por error el `.env.local` REAL de
+desarrollo local (no el que generó la CLI) — se repuso con las credenciales del Supabase LOCAL
+(`supabase status -o env`, son las públicas y conocidas del stack local, no un secreto real), pero
+el valor de `HUGGINGFACEHUB_API_TOKEN` que tenía cargado se perdió — el usuario tiene que volver a
+pegarlo ahí (no hace falta pasarlo por el chat).
+
+Verificación final: `vercel build` real compila y arma un `middleware.func` de un solo archivo;
+`npm run build && npm run start` REAL (no solo `next dev`) sirve `200` en `/`; `npm run test`
+218/218; `npm run test:e2e` 24/24 con `supabase db reset` fresco.
+
 ### 2.4 Pendiente
 
 _Falta: branch protection (Tarea C, al cierre de esta fase), smoke tests post-deploy (Sección 3),

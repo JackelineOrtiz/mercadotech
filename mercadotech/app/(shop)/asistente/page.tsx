@@ -22,7 +22,7 @@ export default function AsistentePage() {
   const { messages, sendMessage, loading } = useChat("compras");
 
   if (initializing) return <LoadingState rows={4} />;
-  // El middleware (lib/supabase/middleware.ts) ya redirige a un anónimo
+  // El middleware (middleware.ts) ya redirige a un anónimo
   // antes de llegar aquí — esto cubre el instante entre montar y que
   // useAuth resuelva la sesión del lado del cliente.
   if (!user) return null;
