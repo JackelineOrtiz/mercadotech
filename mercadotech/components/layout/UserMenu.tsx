@@ -38,7 +38,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
             className="rounded-full focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <Avatar>
-              <AvatarImage src={user.avatar_path ?? undefined} alt="" />
+              <AvatarImage src={user.avatar_url ?? undefined} alt="" />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
           </button>
@@ -46,6 +46,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
       />
 
       <DropdownMenuContent align="end">
+        <DropdownMenuItem render={<Link href="/perfil">Mi perfil</Link>} />
         <DropdownMenuItem render={<Link href="/pedidos">Mis pedidos</Link>} />
         <DropdownMenuItem render={<Link href="/favoritos">Favoritos</Link>} />
         <DropdownMenuItem render={<Link href="/asistente">Asistente</Link>} />

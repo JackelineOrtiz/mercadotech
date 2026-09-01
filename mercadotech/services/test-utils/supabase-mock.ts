@@ -53,6 +53,7 @@ export interface AuthResponses {
   signInWithPassword?: { data?: unknown; error?: unknown };
   signOut?: { error?: unknown };
   getUser?: { data?: { user: unknown } };
+  updateUser?: { data?: unknown; error?: unknown };
   onAuthStateChange?: { unsubscribe?: () => void };
 }
 
@@ -74,7 +75,7 @@ export interface StorageCallRecord {
 }
 
 export interface AuthCallRecord {
-  method: "signUp" | "signInWithPassword" | "signOut" | "getUser";
+  method: "signUp" | "signInWithPassword" | "signOut" | "getUser" | "updateUser";
   params: unknown;
 }
 
@@ -97,6 +98,7 @@ export interface MockSupabaseClient {
     signInWithPassword: (params: unknown) => Promise<{ data: unknown; error: unknown }>;
     signOut: () => Promise<{ error: unknown }>;
     getUser: () => Promise<{ data: { user: unknown } }>;
+    updateUser: (params: unknown) => Promise<{ data: unknown; error: unknown }>;
     onAuthStateChange: (cb: () => void) => { data: { subscription: { unsubscribe: () => void } } };
   };
   storage: {
@@ -261,6 +263,11 @@ export function mockSupabase(
       getUser: async () => {
         authCalls.push({ method: "getUser", params: undefined });
         return { data: options.auth?.getUser?.data ?? { user: null } };
+      },
+      updateUser: async (params: unknown) => {
+        authCalls.push({ method: "updateUser", params });
+        const cfg = options.auth?.updateUser;
+        return { data: cfg?.data ?? { user: null }, error: cfg?.error ?? null };
       },
       onAuthStateChange: (_cb: () => void) => {
         void _cb;

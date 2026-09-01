@@ -52,6 +52,24 @@ export async function uploadProductImage(
   return path;
 }
 
+// Mismo bucket/convención que product-images (Fase 3.7), pero con nombre
+// fijo "avatar.{ext}": un solo archivo por usuario, no N por producto, así
+// que no hace falta numerar. upsert:true reemplaza el anterior sin dejar
+// huérfanos. Devuelve el path crudo — el caller (hook) lo guarda en
+// profiles.avatar_path vía auth.service.updateAvatarPath, mismo contrato
+// de dos pasos que uploadProductImage + saveImageOrder.
+export async function uploadAvatar(
+  file: File,
+  userId: string,
+  supabase: Client = createClient(),
+): Promise<string> {
+  const ext = EXT_BY_MIME[file.type] ?? "jpg";
+  const path = `${userId}/avatar.${ext}`;
+  const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+  if (error) throw error;
+  return path;
+}
+
 // Borra el objeto en Storage y su fila en product_images en el mismo
 // llamado — el vendedor nunca deja una imagen "huérfana" en un solo lado.
 // Se matchea por image_path (no por id): mismo valor que devolvió

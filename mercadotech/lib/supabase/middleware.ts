@@ -12,6 +12,7 @@ const PROTECTED_PREFIXES = [
   "/vendedor",
   "/asistente",
   "/soporte",
+  "/perfil",
 ];
 
 function requiresAuth(pathname: string): boolean {

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import * as authService from "@/services/auth.service";
-import type { RegisterInput } from "@/services/auth.service";
+import type { RegisterInput, UpdateProfileInput } from "@/services/auth.service";
+import * as storageService from "@/services/storage.service";
 import type { Profile } from "@/types/user";
 
 export interface UseAuthState {
@@ -98,5 +99,68 @@ export function useAuth() {
     }
   }, []);
 
-  return { ...state, register, login, logout, requestPasswordReset, updatePassword };
+  // Distinto de updatePassword: se usa desde /perfil (sesión normal, no de
+  // recuperación) y por eso reautentica con la contraseña actual primero —
+  // ver el hallazgo real documentado en auth.service.changePassword.
+  const changePassword = useCallback(
+    async (email: string, currentPassword: string, newPassword: string) => {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      try {
+        await authService.changePassword(email, currentPassword, newPassword);
+        setState((s) => ({ ...s, loading: false }));
+      } catch (err) {
+        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        throw err;
+      }
+    },
+    [],
+  );
+
+  // updateProfile y uploadAvatar recargan el profile al terminar (loadProfile)
+  // para que UserMenu y esta misma página reflejen el cambio sin esperar a
+  // un evento de onAuthStateChange, que no dispara con un UPDATE a profiles
+  // (solo con cambios de sesión de auth).
+  const updateProfile = useCallback(
+    async (userId: string, input: UpdateProfileInput) => {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      try {
+        await authService.updateProfile(userId, input);
+        await loadProfile();
+        setState((s) => ({ ...s, loading: false }));
+      } catch (err) {
+        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        throw err;
+      }
+    },
+    [loadProfile],
+  );
+
+  const uploadAvatar = useCallback(
+    async (userId: string, file: File) => {
+      setState((s) => ({ ...s, loading: true, error: null }));
+      try {
+        const path = await storageService.uploadAvatar(file, userId);
+        await authService.updateAvatarPath(userId, path);
+        await loadProfile();
+        setState((s) => ({ ...s, loading: false }));
+      } catch (err) {
+        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        throw err;
+      }
+    },
+    [loadProfile],
+  );
+
+  return {
+    ...state,
+    register,
+    login,
+    logout,
+    requestPasswordReset,
+    updatePassword,
+    changePassword,
+    updateProfile,
+    uploadAvatar,
+    refreshProfile: loadProfile,
+  };
 }

@@ -4,6 +4,7 @@ import {
   uploadProductImage,
   deleteProductImage,
   saveImageOrder,
+  uploadAvatar,
 } from "@/services/storage.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
@@ -47,6 +48,37 @@ describe("storage.service.uploadProductImage", () => {
     const supabase = mockSupabase({}, { storage: { "product-images": { upload: { error: { message: "quota exceeded" } } } } });
     const file = { type: "image/jpeg" } as unknown as File;
     await expect(uploadProductImage(file, "s1", "p1", 0, supabase)).rejects.toMatchObject({
+      message: "quota exceeded",
+    });
+  });
+});
+
+describe("storage.service.uploadAvatar", () => {
+  it("arma el path userId/avatar.ext, tomando la extensión del MIME real", async () => {
+    const supabase = mockSupabase({});
+    const file = { type: "image/webp" } as unknown as File;
+
+    const path = await uploadAvatar(file, "u1", supabase);
+
+    expect(path).toBe("u1/avatar.webp");
+    expect(supabase.storageCalls).toContainEqual({
+      bucket: "avatars",
+      op: "upload",
+      args: ["u1/avatar.webp", file, { upsert: true }],
+    });
+  });
+
+  it("MIME desconocido: cae a extensión jpg por defecto", async () => {
+    const supabase = mockSupabase({});
+    const file = { type: "image/gif" } as unknown as File;
+    const path = await uploadAvatar(file, "u1", supabase);
+    expect(path).toBe("u1/avatar.jpg");
+  });
+
+  it("propaga el error de Storage tal cual", async () => {
+    const supabase = mockSupabase({}, { storage: { avatars: { upload: { error: { message: "quota exceeded" } } } } });
+    const file = { type: "image/jpeg" } as unknown as File;
+    await expect(uploadAvatar(file, "u1", supabase)).rejects.toMatchObject({
       message: "quota exceeded",
     });
   });

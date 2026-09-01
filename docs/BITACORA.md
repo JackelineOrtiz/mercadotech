@@ -8,6 +8,88 @@ salvo las secciones marcadas explícitamente.
 
 ---
 
+## Trabajo ad-hoc — Pantallas faltantes para app funcional (2026-09-01, en curso)
+
+Pedido explícito del usuario, fuera del temario de las sesiones: "ayudame a
+revisar que esten las pantallas para que sea una aplicacion funcional, no
+solo las que pusimos en el pdf". Auditoría inicial encontró seis huecos:
+sin 404, sin error boundary, sin recuperación de contraseña, sin "Mi
+perfil", sin visibilidad pública del vendedor/storefront, sin panel de
+admin. El usuario pidió construirlas todas seguidas ("empecemos con el 404
+pero inmediatamente despues implementemos todas las otras pantallas
+nuevas"). Cada una sigue el mismo ciclo que las sesiones regulares
+(architecture-enforcer → code-reviewer → correcciones → automatic-
+validator → commit → push → verificar CI real), documentado acá porque no
+tiene Prompt/Fase de spec que lo cubra.
+
+### 404 y error boundary (commit `2575df9`)
+
+`app/not-found.tsx` y `app/error.tsx`, patrón visual mínimo consistente
+con el resto de la app (header + `EmptyState`). CI real: success.
+
+### Recuperación de contraseña (commit `a0ce079`)
+
+`/recuperar` (pide el correo) + `/actualizar-contrasena` (nueva
+contraseña, solo alcanzable con la sesión de recuperación que
+`@supabase/ssr` detecta sola desde la URL). Dos hallazgos reales de
+`supabase/config.toml`, encontrados verificando en vivo contra Mailpit
+(no simulados): `site_url` tenía un host distinto al de
+`NEXT_PUBLIC_SITE_URL` (`127.0.0.1` vs `localhost`), y
+`additional_redirect_urls` sin wildcard (`/**`) hacía que GoTrue
+descartara en silencio cualquier path del `redirectTo`, cayendo al
+`site_url` pelado. CI real: success.
+
+Durante esta fase, un incidente de permisos de filesystem de macOS
+(`~/Documents` con EPERM en Read/Bash) interrumpió el trabajo — causa
+raíz: un permiso TCC revocado por una actualización del sistema instalada
+en paralelo; se resolvió con el reinicio del Mac que el usuario ya iba a
+hacer de todos modos. No es un hallazgo del código, se documenta acá solo
+porque partió la sesión en dos.
+
+### Mi perfil (en curso)
+
+`/perfil`: editar `display_name`/`phone`, subir avatar (bucket `avatars`,
+mismo patrón que `product-images` de la Fase 3.7), y cambiar contraseña.
+
+Dos hallazgos reales, ambos encontrados verificando en vivo (login real
+como `buyer1`, no solo tests):
+
+1. **Bug preexistente de `UserMenu.tsx`** (desde que existe el componente,
+   nunca notado porque `avatar_path` siempre fue `null` en el seed):
+   pasaba `profile.avatar_path` crudo como `src` de `<AvatarImage>` — un
+   path de Storage, no una URL. Se resuelve ahora en
+   `auth.service.getSession` (mismo patrón que `product.service` con
+   `image_url`), y `types/user.ts` gana el campo `avatar_url`.
+2. **Cambiar contraseña sin pedir la contraseña actual** (hallazgo del
+   code-reviewer): `auth.service.updatePassword` alcanza para
+   `/actualizar-contrasena` porque el link del correo YA prueba identidad,
+   pero reusado tal cual en `/perfil` habría permitido cambiar la
+   contraseña con solo una sesión ambiente — sin reautenticación, un
+   navegador compartido o una sesión XSS podría secuestrar la cuenta. Se
+   agregó `auth.service.changePassword` (reautentica con
+   `signInWithPassword` antes de `updateUser`) y un
+   `ChangePasswordForm` dedicado con campo de contraseña actual.
+
+Un tercer hallazgo, encontrado verificando en el navegador real (no en
+tests, que usan mocks y por lo tanto no lo hubieran detectado): las tres
+acciones de esta página (`updateProfile`, `uploadAvatar`,
+`changePassword`) compartían el `loading`/`error` único de
+`UseAuthState` — diseñado para acciones que viven cada una en su propia
+página (login, register...). Al fallar el cambio de contraseña con la
+contraseña actual incorrecta, el error real de Supabase ("Invalid login
+credentials") aparecía bajo el formulario de NOMBRE, no bajo el de
+contraseña. Se corrigió con estado local (`useState`) por sección en
+`app/(shop)/perfil/page.tsx`, sin tocar el contrato de `useAuth` para sus
+demás consumidores.
+
+### Pendiente (mismo pedido, sin empezar todavía)
+
+Visibilidad pública del vendedor/storefront (bloqueado por RLS de
+`profiles`: solo el dueño o un admin puede leerla — ver "Deuda técnica"
+de Sesiones anteriores sobre `public_profiles`) y panel de admin (sin
+ninguna ruta `/admin` hoy; `role === 'admin'` solo gatea autorización a
+nivel de API, sin UI dedicada).
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

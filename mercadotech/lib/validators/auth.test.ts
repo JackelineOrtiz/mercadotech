@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { validateLogin, validateRegister } from "@/lib/validators/auth";
+import {
+  validateLogin,
+  validateRegister,
+  validateUpdateProfile,
+  validateChangePassword,
+} from "@/lib/validators/auth";
 
 // Sin mocks (archivo puro). Los valores límite de displayName (2/60) y de
 // password (8) están HARDCODEADOS en auth.ts, sin constante exportada que
@@ -79,5 +84,67 @@ describe("validateRegister", () => {
 
   it("rol seller es válido (rama corta-circuito del && en false)", () => {
     expect(validateRegister({ ...ok, role: "seller" }).role).toBeUndefined();
+  });
+});
+
+describe("validateUpdateProfile", () => {
+  it("caso feliz: nombre válido, teléfono vacío (opcional)", () => {
+    expect(validateUpdateProfile({ displayName: "Ana", phone: "" })).toEqual({});
+  });
+
+  it("caso feliz: teléfono con dígitos suficientes", () => {
+    expect(validateUpdateProfile({ displayName: "Ana", phone: "+51 987 654 321" })).toEqual({});
+  });
+
+  it("displayName por debajo del mínimo (1 carácter)", () => {
+    expect(validateUpdateProfile({ displayName: "a", phone: "" }).displayName).toBeDefined();
+  });
+
+  it("displayName vacío (tras trim)", () => {
+    expect(validateUpdateProfile({ displayName: "   ", phone: "" }).displayName).toBeDefined();
+  });
+
+  it("displayName por encima del máximo (61 caracteres)", () => {
+    expect(
+      validateUpdateProfile({ displayName: "a".repeat(61), phone: "" }).displayName,
+    ).toBeDefined();
+  });
+
+  it("displayName en los dos bordes válidos (2 y 60) no genera error", () => {
+    expect(validateUpdateProfile({ displayName: "aa", phone: "" }).displayName).toBeUndefined();
+    expect(
+      validateUpdateProfile({ displayName: "a".repeat(60), phone: "" }).displayName,
+    ).toBeUndefined();
+  });
+
+  it("teléfono con menos de 6 dígitos: error", () => {
+    expect(validateUpdateProfile({ displayName: "Ana", phone: "12345" }).phone).toBeDefined();
+  });
+
+  it("teléfono de solo espacios (tras trim, vacío): no es error — rama corta-circuito del &&", () => {
+    expect(validateUpdateProfile({ displayName: "Ana", phone: "   " }).phone).toBeUndefined();
+  });
+
+  it("teléfono con exactamente 6 dígitos: válido (borde)", () => {
+    expect(validateUpdateProfile({ displayName: "Ana", phone: "123456" }).phone).toBeUndefined();
+  });
+});
+
+describe("validateChangePassword", () => {
+  const ok = { currentPassword: "actual123", password: "12345678", confirmPassword: "12345678" };
+
+  it("caso feliz: sin errores", () => {
+    expect(validateChangePassword(ok)).toEqual({});
+  });
+
+  it("currentPassword vacía: error propio, aunque password/confirmPassword sean válidas", () => {
+    const errors = validateChangePassword({ ...ok, currentPassword: "" });
+    expect(errors.currentPassword).toBeDefined();
+    expect(errors.password).toBeUndefined();
+  });
+
+  it("hereda las reglas de validateNewPassword para password/confirmPassword", () => {
+    expect(validateChangePassword({ ...ok, password: "1234567" }).password).toBeDefined();
+    expect(validateChangePassword({ ...ok, confirmPassword: "otra" }).confirmPassword).toBeDefined();
   });
 });

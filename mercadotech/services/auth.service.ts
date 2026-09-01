@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { getPublicUrl } from "@/services/storage.service";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { UserRole } from "@/lib/constants/roles";
@@ -80,6 +81,68 @@ export async function updatePassword(
   if (error) throw error;
 }
 
+// Hallazgo real del code-reviewer al construir "Mi perfil": updatePassword
+// (arriba) no pide la contraseña actual porque en /actualizar-contrasena el
+// link del correo YA es la prueba de identidad — pero llamado desde una
+// sesión ambiente normal (perfil de cuenta), eso dejaría cambiar la
+// contraseña sin saber la anterior (riesgo real: navegador compartido, XSS,
+// dispositivo desatendido). signInWithPassword con la contraseña actual
+// reautentica antes de tocar nada; si falla, updateUser ni se llama.
+export async function changePassword(
+  email: string,
+  currentPassword: string,
+  newPassword: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email,
+    password: currentPassword,
+  });
+  if (reauthError) throw reauthError;
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+export interface UpdateProfileInput {
+  displayName: string;
+  phone: string;
+}
+
+// UPDATE de profiles: RLS (profiles_update_own, Fase 2.3) ya restringe a
+// "solo mi propia fila", y el GRANT de columnas solo expone display_name/
+// phone/avatar_path — un intento de colar "role" acá ni siquiera llegaría,
+// pero de todos modos no se ofrece en el input porque no es de este
+// formulario. phone vacío se guarda como null (columna nullable), no como
+// string vacío, para no ensuciar futuras validaciones de "¿tiene teléfono?".
+export async function updateProfile(
+  userId: string,
+  { displayName, phone }: UpdateProfileInput,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ display_name: displayName.trim(), phone: phone.trim() || null })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+// Separado de updateProfile: subir el archivo (storage.service.uploadAvatar)
+// y guardar el path son dos pasos con dos posibles puntos de falla — el
+// caller (hook) decide el orden y puede reintentar el segundo paso sin
+// volver a subir el archivo si el UPDATE fallara.
+export async function updateAvatarPath(
+  userId: string,
+  avatarPath: string,
+  supabase: Client = createClient(),
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_path: avatarPath })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
 // Usuario de auth.users + su fila de profiles, en un solo viaje para
 // useAuth. Errores silenciados igual que antes de moverlo aquí (Fase 3.8:
 // useAuth llamaba a supabase directo desde el hook, violando la regla de
@@ -100,7 +163,18 @@ export async function getSession(
     .eq("id", user.id)
     .single();
 
-  return { user, profile: (profile as Profile) ?? null };
+  if (!profile) return { user, profile: null };
+
+  // Bug real encontrado al construir "Mi perfil" (pantalla fuera del PDF):
+  // hasta ahora avatar_path siempre era null en el seed, así que nadie
+  // notó que UserMenu intentaba usarlo directo como src de <img> — un path
+  // de Storage crudo, no una URL. Se resuelve acá, mismo patrón que
+  // product.service con image_url, para que ya nunca vuelva a pasar.
+  const avatar_url = profile.avatar_path
+    ? getPublicUrl("avatars", profile.avatar_path, supabase)
+    : null;
+
+  return { user, profile: { ...(profile as Profile), avatar_url } };
 }
 
 // Envuelve onAuthStateChange para que useAuth no necesite tocar
