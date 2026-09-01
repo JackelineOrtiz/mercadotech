@@ -9,6 +9,9 @@
 -- Actualizado: 2026-08-28 — Fases 5.3-5.4 de la Sesión 5 (GRANTs de
 -- service_role sobre match_knowledge/orders/order_items/profiles,
 -- hallazgo real al probar el servidor MCP).
+-- Actualizado: 2026-09-01 — trabajo ad-hoc fuera del temario (ver
+-- docs/BITACORA.md): vista public_profiles (20260901100000), storefront
+-- público del vendedor.
 
 -- ============================================================
 -- 20260819110000_create_rls_policies.sql (Fase 2.3 — tablas)
@@ -700,3 +703,29 @@ grant select on public.order_items to service_role;
 -- propósito (nunca "*"), pero igual necesita el GRANT de tabla para poder
 -- correr esa columna siquiera.
 grant select on public.profiles to service_role;
+
+-- ============================================================
+-- 20260901100000_create_public_profiles_view.sql (ad-hoc, fuera del
+-- temario — ver docs/BITACORA.md)
+-- ============================================================
+-- Storefront público del vendedor: profiles_select_own_or_admin (arriba)
+-- no deja leer el perfil de nadie más, así que el catálogo/producto no
+-- podía mostrar "quién vende esto" para un visitante cualquiera. No se
+-- toca la política de profiles (un SELECT público ahí expondría TODAS
+-- sus columnas, incluido phone — el GRANT de profiles a authenticated es
+-- sin restricción de columnas, a diferencia del UPDATE). Una vista es la
+-- herramienta correcta: solo expone lo que se lista acá.
+--
+-- Bypassea RLS de profiles sin querer decir "cualquiera lee profiles
+-- completo": la vista la crea (y por lo tanto es dueña) el rol que corre
+-- las migraciones (postgres), y Postgres no aplica RLS al dueño de la
+-- tabla subyacente salvo FORCE ROW LEVEL SECURITY (profiles no la
+-- tiene) — la vista ve todas las filas y filtra ELLA a role = 'seller'.
+-- Verificado en vivo: un curl anon a public_profiles trae los vendedores;
+-- el mismo curl a profiles sigue con "permission denied".
+create view public.public_profiles as
+select id, display_name, avatar_path
+from public.profiles
+where role = 'seller';
+
+grant select on public.public_profiles to anon, authenticated;

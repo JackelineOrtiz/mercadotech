@@ -82,13 +82,36 @@ contraseña. Se corrigió con estado local (`useState`) por sección en
 `app/(shop)/perfil/page.tsx`, sin tocar el contrato de `useAuth` para sus
 demás consumidores.
 
+### Storefront público del vendedor (commit pendiente)
+
+`/tienda/[sellerId]`: header con avatar+nombre real del vendedor + grilla
+de sus productos activos (reusa `FiltersPanel`/`ProductGrid`/`Pagination`
+de `/categoria/[slug]` tal cual, solo cambia el filtro fijo). La ficha de
+producto ahora muestra "Vendido por {nombre real}" (antes: nada, ni
+siquiera un link) enlazado a la tienda.
+
+La deuda ya documentada ("sin `public_profiles`") se cierra con una
+migración nueva (`20260901100000_create_public_profiles_view.sql`): una
+vista `public_profiles` (id/display_name/avatar_path, filtrada a
+`role = 'seller'`) en vez de tocar la política de `profiles` — un SELECT
+público ahí expondría TODAS las columnas (incluido `phone`, GRANT sin
+restricción de columnas), mientras que la vista solo expone lo que se
+lista. La vista bypassea RLS de `profiles` porque su dueña es `postgres`
+(quien corre las migraciones) y Postgres no aplica RLS al dueño de la
+tabla subyacente salvo `FORCE ROW LEVEL SECURITY` (que `profiles` no
+tiene) — verificado en vivo con `curl` anon: `public_profiles` trae los
+2 vendedores del seed, `profiles` directo sigue "permission denied".
+
+Verificado en vivo, sin sesión (visitante anónimo real): `/tienda/<id de
+TecnoStore Perú>` muestra exactamente sus 8 productos activos, ninguno de
+Gamer Zone Perú; un `id` de un `buyer` o un UUID inexistente devuelven
+"Tienda no encontrada" (la vista los excluye a los dos por igual, sin
+poder ni necesitar distinguir el motivo).
+
 ### Pendiente (mismo pedido, sin empezar todavía)
 
-Visibilidad pública del vendedor/storefront (bloqueado por RLS de
-`profiles`: solo el dueño o un admin puede leerla — ver "Deuda técnica"
-de Sesiones anteriores sobre `public_profiles`) y panel de admin (sin
-ninguna ruta `/admin` hoy; `role === 'admin'` solo gatea autorización a
-nivel de API, sin UI dedicada).
+Panel de admin: sin ninguna ruta `/admin` hoy; `role === 'admin'` solo
+gatea autorización a nivel de API, sin UI dedicada.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

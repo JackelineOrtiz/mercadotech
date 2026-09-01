@@ -19,9 +19,12 @@ export interface UseProductsOptions {
   // Fijo desde el segmento de ruta en /categoria/[slug] — no viene de la URL
   // de búsqueda como los demás filtros.
   categorySlug?: string;
+  // Mismo patrón que categorySlug, fijo desde /tienda/[sellerId] (fuera del
+  // PDF de la spec — storefront público del vendedor).
+  sellerId?: string;
 }
 
-export function useProducts({ categorySlug }: UseProductsOptions = {}) {
+export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -47,6 +50,7 @@ export function useProducts({ categorySlug }: UseProductsOptions = {}) {
     setError(null);
     listActiveProducts({
       categorySlug,
+      sellerId,
       search,
       condition: conditionKey ? (conditionKey.split(",") as ProductCondition[]) : undefined,
       minPrice,
@@ -63,7 +67,7 @@ export function useProducts({ categorySlug }: UseProductsOptions = {}) {
         setError((err as Error).message);
         setLoading(false);
       });
-  }, [categorySlug, search, conditionKey, minPrice, maxPrice, sort, page]);
+  }, [categorySlug, sellerId, search, conditionKey, minPrice, maxPrice, sort, page]);
 
   useEffect(() => {
     fetchProducts();

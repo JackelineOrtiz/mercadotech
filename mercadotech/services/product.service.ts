@@ -16,6 +16,10 @@ export interface ProductFilters {
   maxPrice?: number;
   sort?: SortOption;
   page?: number;
+  // Fuera del PDF de la spec: storefront público del vendedor
+  // (/tienda/[sellerId]) — reusa este mismo filtro en vez de una query
+  // aparte, is_active sigue aplicándose igual que en el catálogo normal.
+  sellerId?: string;
 }
 
 // Forma real de la fila que devuelve el select anidado — product_images y
@@ -75,6 +79,10 @@ export async function listActiveProducts(
     // catálogo público (products_select_active_or_own también deja pasar
     // "o soy el dueño").
     .eq("is_active", true);
+
+  if (filters.sellerId) {
+    query = query.eq("seller_id", filters.sellerId);
+  }
 
   if (filters.categorySlug) {
     const { data: category, error: categoryError } = await supabase

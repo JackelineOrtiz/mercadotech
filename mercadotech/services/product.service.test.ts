@@ -84,6 +84,18 @@ describe("product.service.listActiveProducts", () => {
     expect(call?.chain).toContainEqual({ method: "eq", args: ["is_active", true] });
   });
 
+  it("sellerId: filtra por seller_id, sin consultar categories (storefront público, fuera del PDF de la spec)", async () => {
+    const supabase = mockSupabase({
+      products: { select: [baseRow()], count: 1 },
+    });
+
+    await listActiveProducts({ sellerId: "s1" }, supabase);
+
+    const call = supabase.calls.find((c) => c.table === "products" && c.op === "select");
+    expect(call?.chain).toContainEqual({ method: "eq", args: ["seller_id", "s1"] });
+    expect(supabase.calls.some((c) => c.table === "categories")).toBe(false);
+  });
+
   it("resuelve categorySlug a category_id vía un select previo a categories", async () => {
     const supabase = mockSupabase({
       categories: { single: { id: "cat-42" } },

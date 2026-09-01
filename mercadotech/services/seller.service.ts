@@ -5,8 +5,41 @@ import type { Product } from "@/types/product";
 import type { SellerOrder } from "@/types/order";
 import type { OrderStatus, ProductCondition } from "@/lib/constants/roles";
 import { PRODUCT_SELECT, mapProduct, type ProductQueryRow } from "@/services/product.service";
+import { getPublicUrl } from "@/services/storage.service";
 
 type Client = SupabaseClient<Database>;
+
+export interface SellerPublicProfile {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+// Única función PÚBLICA de este archivo (el resto asume sellerId = el
+// propio vendedor logueado, protegido por RLS "own"): lee de la vista
+// public_profiles (Fase ad-hoc, ver docs/BITACORA.md — profiles_select_
+// own_or_admin, Fase 2.3, no deja leer el perfil de otro usuario). La
+// vista ya filtra a role = 'seller' y solo expone id/display_name/
+// avatar_path, así que null acá significa "no existe o no es vendedor",
+// sin distinguir cuál — no hace falta más detalle para este storefront.
+export async function getSellerPublicProfile(
+  sellerId: string,
+  supabase: Client = createClient(),
+): Promise<SellerPublicProfile | null> {
+  const { data, error } = await supabase
+    .from("public_profiles")
+    .select("*")
+    .eq("id", sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || !data.id) return null;
+
+  return {
+    id: data.id,
+    display_name: data.display_name,
+    avatar_url: data.avatar_path ? getPublicUrl("avatars", data.avatar_path, supabase) : null,
+  };
+}
 
 // A diferencia de listActiveProducts (3.4), sin .eq("is_active", true):
 // products_select_active_or_own ya deja pasar los inactivos del dueño, y

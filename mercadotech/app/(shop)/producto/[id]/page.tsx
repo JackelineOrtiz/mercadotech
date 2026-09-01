@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useProduct } from "@/hooks/useProduct";
+import { useSellerPublicProfile } from "@/hooks/useSellerPublicProfile";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useReviews } from "@/hooks/useReviews";
 import { useFavorite } from "@/hooks/useFavorite";
@@ -23,6 +24,10 @@ export default function ProductoPage() {
   const { user, profile } = useAuth();
 
   const { product, images, loading, error, retry } = useProduct(productId, user?.id);
+  // Se llama SIEMPRE (regla de los hooks), con seller_id undefined hasta
+  // que product resuelva — useSellerPublicProfile ya maneja ese caso sin
+  // disparar ningún fetch.
+  const { profile: sellerProfile } = useSellerPublicProfile(product?.seller_id);
   const {
     questions,
     loading: questionsLoading,
@@ -62,7 +67,7 @@ export default function ProductoPage() {
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <ProductGallery images={images} productTitle={product.title} />
         <div className="flex flex-col gap-4">
-          <ProductInfo product={product} />
+          <ProductInfo product={product} sellerName={sellerProfile?.display_name} />
           <BuyBox
             product={product}
             hasSession={!!user}

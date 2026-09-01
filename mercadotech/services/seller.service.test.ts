@@ -7,6 +7,7 @@ import {
   deleteProduct,
   listMyOrders,
   updateOrderStatus,
+  getSellerPublicProfile,
 } from "@/services/seller.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
@@ -161,5 +162,45 @@ describe("seller.service.updateOrderStatus", () => {
     const supabase = mockSupabase({ orders: {} });
     await updateOrderStatus("o1", "enviado", supabase);
     expect(supabase.updates("orders")).toContainEqual({ status: "enviado" });
+  });
+});
+
+describe("seller.service.getSellerPublicProfile", () => {
+  it("lee de la vista public_profiles (no de profiles) y resuelve avatar_url", async () => {
+    const supabase = mockSupabase({
+      public_profiles: {
+        maybeSingle: { id: "s1", display_name: "TecnoStore Perú", avatar_path: "s1/avatar.jpg" },
+      },
+    });
+
+    const profile = await getSellerPublicProfile("s1", supabase);
+
+    expect(profile).toEqual({
+      id: "s1",
+      display_name: "TecnoStore Perú",
+      avatar_url: "https://fake.supabase.local/storage/v1/object/public/avatars/s1/avatar.jpg",
+    });
+    expect(supabase.calls.some((c) => c.table === "profiles")).toBe(false);
+  });
+
+  it("sin avatar_path: avatar_url null, sin llamar a getPublicUrl", async () => {
+    const supabase = mockSupabase({
+      public_profiles: { maybeSingle: { id: "s1", display_name: "TecnoStore Perú", avatar_path: null } },
+    });
+    const profile = await getSellerPublicProfile("s1", supabase);
+    expect(profile?.avatar_url).toBeNull();
+  });
+
+  it("id inexistente o no es vendedor: null (maybeSingle sin filas)", async () => {
+    const supabase = mockSupabase({ public_profiles: { maybeSingle: null } });
+    const profile = await getSellerPublicProfile("no-existe", supabase);
+    expect(profile).toBeNull();
+  });
+
+  it("propaga el error tal cual", async () => {
+    const supabase = mockSupabase({ public_profiles: { error: { message: "network error" } } });
+    await expect(getSellerPublicProfile("s1", supabase)).rejects.toMatchObject({
+      message: "network error",
+    });
   });
 });

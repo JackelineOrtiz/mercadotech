@@ -1,12 +1,17 @@
+import Link from "next/link";
 import { Price } from "@/components/shared/Price";
 import { ConditionBadge } from "@/components/shared/ConditionBadge";
 import type { Product } from "@/types/product";
 
 export interface ProductInfoProps {
   product: Product;
+  // Resuelto por useSellerPublicProfile en la página (nunca fetch acá —
+  // componente puro). undefined mientras carga, null si no se pudo
+  // resolver (igual se linkea a la tienda, con un texto genérico).
+  sellerName?: string | null;
 }
 
-export function ProductInfo({ product }: ProductInfoProps) {
+export function ProductInfo({ product, sellerName }: ProductInfoProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -23,6 +28,18 @@ export function ProductInfo({ product }: ProductInfoProps) {
       {product.description ? (
         <p className="mt-2 text-sm text-foreground/90">{product.description}</p>
       ) : null}
+      {/* Fuera del PDF de la spec: storefront público del vendedor — antes
+          no había forma de ver "quién vende esto" ni "qué más vende esta
+          tienda" desde acá. Texto genérico como fallback mientras
+          sellerName carga o si no se pudo resolver — nunca "Vendido por:
+          " con nombre vacío. */}
+      <Link
+        href={`/tienda/${product.seller_id}`}
+        data-testid="product-visit-store"
+        className="mt-1 w-fit text-sm text-primary hover:underline"
+      >
+        {sellerName ? `Vendido por ${sellerName}` : "Ver más de esta tienda"}
+      </Link>
     </div>
   );
 }
