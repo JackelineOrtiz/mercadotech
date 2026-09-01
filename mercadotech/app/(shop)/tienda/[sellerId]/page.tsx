@@ -10,6 +10,7 @@ import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { Pagination } from "@/components/catalog/Pagination";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 // Fuera del PDF de la spec: storefront público del vendedor (ver
 // docs/BITACORA.md, "Trabajo ad-hoc"). Mismo patrón que /categoria/[slug]
@@ -52,6 +53,9 @@ function TiendaPageContent() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumbs
+        items={[{ label: "Catálogo", href: "/" }, { label: profile?.display_name ?? "Tienda" }]}
+      />
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <Avatar size="lg">
           <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />

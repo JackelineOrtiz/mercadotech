@@ -17,6 +17,7 @@ import { ReviewsSection } from "@/components/product/ReviewsSection";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 // Antes vivía todo esto en page.tsx. Se movió a un componente cliente
 // separado para que page.tsx pudiera volver a ser un Server Component y
@@ -81,6 +82,9 @@ export function ProductoPageClient() {
 
   return (
     <div className="flex flex-col gap-8">
+      <Breadcrumbs
+        items={[{ label: "Catálogo", href: "/" }, { label: product.title }]}
+      />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <ProductGallery images={images} productTitle={product.title} />
         <div className="flex flex-col gap-4">
