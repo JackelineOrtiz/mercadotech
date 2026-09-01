@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import type { User } from "@supabase/supabase-js";
 import * as authService from "@/services/auth.service";
 import type { RegisterInput, UpdateProfileInput } from "@/services/auth.service";
@@ -15,11 +22,22 @@ export interface UseAuthState {
   error: string | null;
 }
 
-// Estado global de sesión: cualquier página que conecte esto pasa user/
-// profile por props a componentes puros (UserMenu, guards de rol). Escucha
-// onAuthStateChange para reaccionar a login/logout hechos en otra pestaña o
-// por el propio hook.
-export function useAuth() {
+// Bug real encontrado en la re-auditoría ad-hoc (ver docs/BITACORA.md),
+// verificando en vivo la subida de avatar: EXACTAMENTE la misma clase de
+// bug que useCart documentó en la Fase 6.5 (ver hooks/useCart.tsx) — antes
+// de este cambio, useAuth era un hook "de instancia": cada llamada
+// (ShopLayout para el Navbar, /perfil para el formulario, cada layout de
+// grupo de rutas para su guard) creaba su PROPIO useState independiente.
+// El comentario original de este archivo decía que updateProfile/
+// uploadAvatar hacían que "UserMenu y esta misma página reflejen el
+// cambio" — FALSO, nunca verificado en vivo: subir un avatar real desde
+// /perfil actualizaba esa instancia, pero el avatar del Navbar (una
+// instancia de useAuth() DISTINTA, montada en (shop)/layout.tsx) seguía
+// mostrando las iniciales viejas hasta un reload completo. A diferencia
+// de useCart (solo (shop)/ lo necesita), useAuth se usa en las 4 rutas
+// (shop/seller/admin/auth), así que el Provider va en la raíz
+// (app/layout.tsx), no en un solo grupo de rutas.
+function useAuthState() {
   const [state, setState] = useState<UseAuthState>({
     user: null,
     profile: null,
@@ -116,10 +134,9 @@ export function useAuth() {
     [],
   );
 
-  // updateProfile y uploadAvatar recargan el profile al terminar (loadProfile)
-  // para que UserMenu y esta misma página reflejen el cambio sin esperar a
-  // un evento de onAuthStateChange, que no dispara con un UPDATE a profiles
-  // (solo con cambios de sesión de auth).
+  // updateProfile y uploadAvatar recargan el profile al terminar
+  // (loadProfile) — ahora sí propaga a TODO consumidor real, porque todos
+  // leen la misma instancia vía Context (ver AuthProvider más abajo).
   const updateProfile = useCallback(
     async (userId: string, input: UpdateProfileInput) => {
       setState((s) => ({ ...s, loading: true, error: null }));
@@ -163,4 +180,26 @@ export function useAuth() {
     uploadAvatar,
     refreshProfile: loadProfile,
   };
+}
+
+type AuthContextValue = ReturnType<typeof useAuthState>;
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+// Una sola instancia real por sesión de navegador — se monta en
+// app/layout.tsx (la raíz, no un grupo de rutas: (shop)/(seller)/(admin)/
+// (auth) son grupos HERMANOS bajo la raíz, ninguno anida a los otros, así
+// que el Provider tiene que vivir arriba de los cuatro para que todos
+// compartan la misma instancia).
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const auth = useAuthState();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth debe usarse dentro de <AuthProvider> (ver app/layout.tsx).");
+  }
+  return context;
 }

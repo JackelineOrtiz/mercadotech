@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,8 +32,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <Toaster />
+          {/* AuthProvider en la raíz, no en (shop)/layout.tsx: (shop)/
+              (seller)/(admin)/(auth) son grupos de rutas HERMANOS bajo
+              esta misma raíz — ninguno anida a los otros, así que el
+              Provider tiene que vivir acá arriba para que los cuatro
+              compartan una sola instancia real de sesión (hallazgo real,
+              ver hooks/useAuth.tsx). */}
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

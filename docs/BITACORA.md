@@ -46,7 +46,7 @@ en paralelo; se resolvió con el reinicio del Mac que el usuario ya iba a
 hacer de todos modos. No es un hallazgo del código, se documenta acá solo
 porque partió la sesión en dos.
 
-### Mi perfil (en curso)
+### Mi perfil (commit `3cab82e`)
 
 `/perfil`: editar `display_name`/`phone`, subir avatar (bucket `avatars`,
 mismo patrón que `product-images` de la Fase 3.7), y cambiar contraseña.
@@ -82,7 +82,7 @@ contraseña. Se corrigió con estado local (`useState`) por sección en
 `app/(shop)/perfil/page.tsx`, sin tocar el contrato de `useAuth` para sus
 demás consumidores.
 
-### Storefront público del vendedor (commit pendiente)
+### Storefront público del vendedor (commit `8e88d84`)
 
 `/tienda/[sellerId]`: header con avatar+nombre real del vendedor + grilla
 de sus productos activos (reusa `FiltersPanel`/`ProductGrid`/`Pagination`
@@ -108,7 +108,7 @@ Gamer Zone Perú; un `id` de un `buyer` o un UUID inexistente devuelven
 "Tienda no encontrada" (la vista los excluye a los dos por igual, sin
 poder ni necesitar distinguir el motivo).
 
-### Panel de administración (commit pendiente) — cierra el pedido
+### Panel de administración (commit `8d252ad`) — cierra el pedido
 
 `/admin` (dashboard: usuarios/pedidos/productos activos/ingresos, con
 desglose por rol y por estado) y `/admin/usuarios` (tabla de todos los
@@ -148,7 +148,7 @@ a revisar que esten las pantallas para que sea una aplicacion funcional,
 no solo las que pusimos en el pdf"): 404/error, recuperación de
 contraseña, Mi perfil, storefront del vendedor, y panel de admin.
 
-### global-error.tsx (commit pendiente) — hallazgo de la re-auditoría
+### global-error.tsx (commit `dbc5668`) — hallazgo de la re-auditoría
 
 Al cerrar las cinco iniciativas, una segunda pasada de auditoría
 ("¿queda algún hueco real de app funcional?") encontró que `error.tsx`
@@ -174,7 +174,7 @@ activa, y se confirmó que "Algo salió mal" renderiza por debajo del
 overlay de desarrollo de Next — luego se revirtió el cambio (`git diff`
 limpio antes de commitear).
 
-### MobileNav.tsx (commit pendiente) — segundo hallazgo de la re-auditoría
+### MobileNav.tsx (commit `03c7639`) — segundo hallazgo de la re-auditoría
 
 Verificando `global-error.tsx` en viewport mobile con `admin1` logueado,
 dos hallazgos reales más, encontrados en el navegador (no en tests):
@@ -199,6 +199,38 @@ dos hallazgos reales más, encontrados en el navegador (no en tests):
    obsoletos ya documentado en esta bitácora — la primera verificación,
    con el servidor viejo, mostró el warning idéntico incluso DESPUÉS del
    fix, hasta reiniciar).
+
+### useAuth como Context (commit pendiente) — pedido explícito del usuario de re-validar caminos felices/fallo con imagen real y cada rol
+
+Verificando en vivo la subida de avatar con una imagen real (no un mock),
+usando `next/link` para navegar (sin reload completo) del Navbar a
+`/perfil` y de vuelta: el avatar recién subido aparecía en `/perfil` pero
+el ícono del Navbar seguía con las iniciales viejas — EXACTAMENTE la
+misma clase de bug que `useCart` documentó en la Fase 6.5 (bug real del
+contador del carrito). `useAuth` era un hook "de instancia": cada llamada
+(`ShopLayout` para el Navbar, `/perfil`, cada layout de grupo de rutas
+para su guard) creaba su propio `useState` — `updateProfile`/
+`uploadAvatar` sí llamaban a `loadProfile()`, pero eso solo refrescaba
+LA INSTANCIA que hizo la llamada, nunca las demás. El comentario
+original del archivo afirmaba que sí propagaba a "UserMenu y esta misma
+página" — nunca se había verificado en vivo, y era falso.
+
+A diferencia de `CartProvider` (solo `(shop)/layout.tsx` lo necesita),
+`AuthProvider` se agregó en la RAÍZ (`app/layout.tsx`): `(shop)`/
+`(seller)`/`(admin)`/`(auth)` son grupos de rutas HERMANOS bajo esa misma
+raíz, ninguno anida a los otros, y los 4 llaman a `useAuth()`. Mismo
+patrón interno que `useCart`/`CartProvider` (Context + hook que lanza si
+se usa fuera del Provider); ningún consumidor existente (18 archivos)
+cambió su forma de uso — solo la implementación interna, de "cada uno
+crea su estado" a "todos leen la misma instancia real".
+
+Verificado en vivo, dos veces: (1) antes del fix, subir el avatar
+actualizaba `/perfil` pero no el Navbar hasta un reload completo; (2)
+después del fix, con `supabase db reset` (estado limpio) + servidor dev
+reiniciado, login real, click real en el link "Mi perfil" del Navbar
+(navegación de CLIENTE, sin reload), subida real de imagen, y el avatar
+del Navbar se actualizó AL TOQUE, sin reload — confirmado leyendo
+`img.src` del propio DOM antes/después.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
