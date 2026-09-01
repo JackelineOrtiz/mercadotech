@@ -2,6 +2,25 @@
 export type UserRole = "buyer" | "seller" | "admin";
 export const USER_ROLES: readonly UserRole[] = ["buyer", "seller", "admin"];
 
+// Fuera del PDF de la spec: panel de admin (ver docs/BITACORA.md) —
+// primer lugar que necesita mostrar el rol como texto legible.
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  buyer: "Comprador",
+  seller: "Vendedor",
+  admin: "Admin",
+};
+
+// Variantes ya definidas en components/ui/badge.tsx — mismo patrón que
+// ORDER_STATUS_BADGE_VARIANT (lib/constants/orders.ts).
+export const USER_ROLE_BADGE_VARIANT: Record<
+  UserRole,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  buyer: "outline",
+  seller: "secondary",
+  admin: "default",
+};
+
 // Estados de un pedido (columna orders.status).
 export type OrderStatus =
   | "pendiente"

@@ -108,10 +108,45 @@ Gamer Zone Perú; un `id` de un `buyer` o un UUID inexistente devuelven
 "Tienda no encontrada" (la vista los excluye a los dos por igual, sin
 poder ni necesitar distinguir el motivo).
 
-### Pendiente (mismo pedido, sin empezar todavía)
+### Panel de administración (commit pendiente) — cierra el pedido
 
-Panel de admin: sin ninguna ruta `/admin` hoy; `role === 'admin'` solo
-gatea autorización a nivel de API, sin UI dedicada.
+`/admin` (dashboard: usuarios/pedidos/productos activos/ingresos, con
+desglose por rol y por estado) y `/admin/usuarios` (tabla de todos los
+usuarios). Mismo patrón de guard que `(seller)/layout.tsx`, pero
+ESTRICTO (`role === 'admin'`, sin el bypass "or admin" que sí tiene
+`canSell` para vendedores) — expone datos de TODOS los usuarios, no
+alcanza con "vendedor o admin".
+
+Decisión de diseño real: `services/admin.service.ts` NO usa el cliente
+admin ni reimplementa `mcp/src/shared/stats.ts` (ese vive en `mcp/` para
+el asistente de IA, con el cliente admin, ve TODO incluidos productos
+inactivos ajenos). El dashboard web corre con la sesión normal del admin
+logueado, apoyándose en el bypass "or `is_admin()`" que
+`profiles_select_own_or_admin` y `orders_select_buyer_seller_or_admin`
+ya tienen (Fase 2.3) — sin RLS nueva, sin Route Handler nuevo.
+`products_select_active_or_own` NO tiene ese bypass (decisión documentada
+en `policies.sql`), así que "productos activos" en el dashboard es
+literalmente lo que cualquiera ve, no un conteo administrativo completo
+de TODO lo publicado alguna vez — límite del MVP, aceptado a propósito
+en vez de agregar un Route Handler con cliente admin solo para esto.
+
+Hallazgo real del architecture-enforcer: `StatsCards.tsx` importaba
+`type { PlatformStats }` directo de `services/admin.service.ts` — el
+grep de verificación de `CLAUDE.md` no distingue value de type import.
+Corregido con un prop type propio (subset de 4 campos), sin importar del
+service.
+
+Verificado en vivo con datos reales: los 6 números del dashboard (y sus
+desgloses por estado/rol) coinciden EXACTO con una consulta directa a
+Postgres con el service role (S/ 12,490.00 de ingresos, 7 pedidos,
+2/0/2/2/1 por estado, 3/2/1 usuarios por rol); un `buyer` navegando a
+`/admin` es redirigido al catálogo con el toast correcto; la tabla de
+usuarios muestra los 6 reales del seed con nombre/teléfono/rol/fecha.
+
+Con esto se cierran las cinco iniciativas del pedido original ("ayudame
+a revisar que esten las pantallas para que sea una aplicacion funcional,
+no solo las que pusimos en el pdf"): 404/error, recuperación de
+contraseña, Mi perfil, storefront del vendedor, y panel de admin.
 
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 

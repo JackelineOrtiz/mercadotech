@@ -56,6 +56,9 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
             render={<Link href="/vendedor/productos">Panel vendedor</Link>}
           />
         ) : null}
+        {user.role === "admin" ? (
+          <DropdownMenuItem render={<Link href="/admin">Panel admin</Link>} />
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem data-testid="user-menu-logout" onClick={onLogout}>
           Cerrar sesión

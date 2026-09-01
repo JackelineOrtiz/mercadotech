@@ -12,7 +12,12 @@ drag & drop, pipeline RAG (pgvector + búsqueda semántica + asistentes),
 gobernanza (4 Skills en `.claude/skills/` + servidor MCP de solo lectura
 en `mcp/`), y red de pruebas (Vitest + Playwright + CI en GitHub Actions).
 Sesión 7 en adelante (performance, secretos, deploy — SIN CI, ya está):
-pendiente. Detalle fase por fase, decisiones y deuda técnica vigente →
+pendiente. Trabajo ad-hoc fuera del temario (pedido explícito del
+usuario, no de una sesión): 404/error boundary, recuperación de
+contraseña, "Mi perfil", storefront público del vendedor (`/tienda/
+[sellerId]`, vista `public_profiles`) y panel de admin (`/admin`) — las
+pantallas que le faltaban a la app para ser funcional más allá del PDF de
+la spec. Detalle fase por fase, decisiones y deuda técnica vigente →
 [`docs/BITACORA.md`](docs/BITACORA.md); checklist de responsive/a11y/
 estados de la Sesión 3 → [`docs/SESION3_CHECKLIST.md`](docs/SESION3_CHECKLIST.md);
 los 6 casos de prueba y la calibración del RAG → [`docs/RAG.md`](docs/RAG.md);
@@ -72,9 +77,12 @@ que `scripts/`: `server-only` revienta bajo Node/tsx puro.
   (`Navbar`, `MobileNav`, `SellerSidebar`...), `catalog/`, `product/`,
   `cart/`, `orders/`, `seller/` (CRUD + drag & drop), `auth/`.
 - Rutas: `(shop)` público/comprador (`/`, `/buscar`, `/categoria/[slug]`,
-  `/producto/[id]`, `/favoritos`, `/carrito`, `/pedidos`, `/pedidos/[id]`);
-  `(seller)` bajo el prefijo `/vendedor/...` para no colisionar con
-  `/pedidos` del comprador; `(auth)` (`/login`, `/register`).
+  `/producto/[id]`, `/favoritos`, `/carrito`, `/pedidos`, `/pedidos/[id]`,
+  `/perfil`, `/tienda/[sellerId]`); `(seller)` bajo el prefijo
+  `/vendedor/...` para no colisionar con `/pedidos` del comprador;
+  `(admin)` bajo `/admin/...` (guard estricto `role === 'admin'`, sin el
+  bypass "or admin" de `(seller)`); `(auth)` (`/login`, `/register`,
+  `/recuperar`, `/actualizar-contrasena`).
 - `lib/constants/`: `roles.ts` (enums de dominio), `catalog.ts`
   (paginación/orden), `orders.ts` (`ORDER_STATUS_FLOW` y labels/badges),
   `product.ts` (límites de título e imágenes), `ai.ts` (TODOS los
