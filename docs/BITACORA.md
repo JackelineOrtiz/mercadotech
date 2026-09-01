@@ -148,6 +148,32 @@ a revisar que esten las pantallas para que sea una aplicacion funcional,
 no solo las que pusimos en el pdf"): 404/error, recuperación de
 contraseña, Mi perfil, storefront del vendedor, y panel de admin.
 
+### global-error.tsx (commit pendiente) — hallazgo de la re-auditoría
+
+Al cerrar las cinco iniciativas, una segunda pasada de auditoría
+("¿queda algún hueco real de app funcional?") encontró que `error.tsx`
+(Fase de la iniciativa 404/error de arriba) captura errores de
+componentes bajo `app/layout.tsx`, pero NO errores del propio
+`app/layout.tsx` (el árbol de `ThemeProvider`/`Toaster`/fuentes) —
+Next.js exige un archivo separado, `app/global-error.tsx`, que reemplaza
+`<html>`/`<body>` por completo porque se ejecuta cuando el layout raíz ya
+falló. El `error.tsx` existente tenía un comentario/nombre de función
+(`GlobalError`) que sugería erróneamente ser ese límite externo —
+corregido (renombrado a `ErrorBoundary`, comentario actualizado).
+
+Decisión deliberada: `global-error.tsx` NO reusa
+`Container`/`EmptyState`/`Button`/`next/link` de `error.tsx` (aunque
+ninguno depende de `ThemeProvider`, verificado) — HTML/Tailwind puros,
+`<a href>` en vez de `next/link`, para minimizar dependencias justo en
+la pantalla de último recurso.
+
+Verificado en vivo con un crash REAL (no simulado): se forzó
+temporalmente un `throw` en `RootLayout` detrás de una env var
+(`FORCE_ROOT_LAYOUT_CRASH`), se corrió `npm run dev` con la env var
+activa, y se confirmó que "Algo salió mal" renderiza por debajo del
+overlay de desarrollo de Next — luego se revirtió el cambio (`git diff`
+limpio antes de commitear).
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

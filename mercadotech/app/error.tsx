@@ -8,12 +8,18 @@ import { Button } from "@/components/ui/button";
 
 // Error boundary especial de Next.js (App Router): DEBE ser Client
 // Component. Captura cualquier error no manejado que escape de un Server
-// o Client Component bajo app/ — sin este archivo, ese error tumba toda la
-// pantalla con la overlay de desarrollo (o una página en blanco en
-// producción) en vez de un estado recuperable. Mismo motivo que
-// not-found.tsx: no entra a ningún layout de grupo de rutas, así que no
-// tiene Navbar real.
-export default function GlobalError({
+// o Client Component bajo app/layout.tsx (páginas, layouts de grupos de
+// rutas) — sin este archivo, ese error tumba toda la pantalla con la
+// overlay de desarrollo (o una página en blanco en producción) en vez de
+// un estado recuperable. Mismo motivo que not-found.tsx: no entra a
+// ningún layout de grupo de rutas, así que no tiene Navbar real.
+//
+// Corrección real (auditoría ad-hoc, ver docs/BITACORA.md): a pesar del
+// nombre "GlobalError" heredado de la convención de Next.js para este
+// archivo, esto NO cubre un error del propio app/layout.tsx (el árbol de
+// ThemeProvider/Toaster/fuentes) — para eso existe app/global-error.tsx,
+// que sí reemplaza <html>/<body> por completo.
+export default function ErrorBoundary({
   error,
   reset,
 }: {
