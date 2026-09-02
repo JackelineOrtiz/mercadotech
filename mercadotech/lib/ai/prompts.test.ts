@@ -61,4 +61,13 @@ describe("SUPPORT_SYSTEM_INSTRUCTIONS — hallazgos de la segunda ronda del audi
   it("incluye la instrucción de respetar literalmente las condiciones/excepciones de un artículo, sin generalizarlas", () => {
     expect(SUPPORT_SYSTEM_INSTRUCTIONS).toContain("condición o excepción");
   });
+
+  // Mismo audit, tercer hallazgo: preguntado el costo de envío con el
+  // artículo completo (montos y plazos exactos) en el contexto, respondió
+  // "consultá el artículo [5]" en vez de citar los montos que ya tenía —
+  // deflectó en vez de responder, sin llegar a decir "no sé" (por eso la
+  // regla de "revisá antes de rendirte", que ya existía, no lo evitó).
+  it("incluye la instrucción de responder con el dato en vez de remitir al usuario a leer la fuente él mismo", () => {
+    expect(SUPPORT_SYSTEM_INSTRUCTIONS).toContain("consultá el artículo");
+  });
 });
