@@ -22,7 +22,7 @@ function BuscarPageContent() {
   const { user } = useAuth();
   const [tab, setTab] = useState<SearchTab>("exacta");
 
-  const exact = useProducts();
+  const exact = useProducts({ excludeSellerId: user?.id });
   // Solo se llama al endpoint (y se gasta cuota de Hugging Face) cuando la
   // pestaña IA está realmente activa Y hay sesión — decisión 1 de la spec.
   const semantic = useSemanticSearch(query, tab === "ia" && !!user);

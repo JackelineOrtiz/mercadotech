@@ -11,9 +11,18 @@ import type { Category } from "@/types/product";
 
 export interface CategoriesMenuProps {
   categories: Category[];
+  // Fase 7.5, hallazgo real: dentro del panel del vendedor, elegir una
+  // categoría te sacaba siempre al catálogo público — pedido explícito de
+  // que ahí filtre "Mis productos" en el lugar, vía ?category=slug (no
+  // hay ruta /vendedor/categoria/[slug]). undefined = comportamiento real
+  // de siempre (/categoria/[slug], "Todas" → /).
+  basePath?: string;
 }
 
-export function CategoriesMenu({ categories }: CategoriesMenuProps) {
+export function CategoriesMenu({ categories, basePath }: CategoriesMenuProps) {
+  const allHref = basePath ?? "/";
+  const categoryHref = (slug: string) => (basePath ? `${basePath}?category=${slug}` : `/categoria/${slug}`);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -29,14 +38,14 @@ export function CategoriesMenu({ categories }: CategoriesMenuProps) {
             forma de "quitar" ese filtro desde este mismo menú — solo se
             podía volver al catálogo completo por el logo. "Todas" arriba
             de la lista, siempre presente. */}
-        <DropdownMenuItem render={<Link href="/">Todas las categorías</Link>} />
+        <DropdownMenuItem render={<Link href={allHref}>Todas las categorías</Link>} />
         {categories.length === 0 ? (
           <DropdownMenuItem disabled>Sin categorías</DropdownMenuItem>
         ) : (
           categories.map((category) => (
             <DropdownMenuItem
               key={category.id}
-              render={<Link href={`/categoria/${category.slug}`}>{category.name}</Link>}
+              render={<Link href={categoryHref(category.slug)}>{category.name}</Link>}
             />
           ))
         )}

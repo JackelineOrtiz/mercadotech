@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { useParams } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { FiltersPanel, type FiltersValue } from "@/components/catalog/FiltersPanel";
@@ -14,9 +15,11 @@ function CategoriaPageContent() {
   const params = useParams<{ slug: string }>();
   const { categories } = useCategories();
   const category = categories.find((c) => c.slug === params.slug);
+  const { profile } = useAuth();
 
   const { items, total, page, loading, error, filters, setFilter, setPage, retry } = useProducts({
     categorySlug: params.slug,
+    excludeSellerId: profile?.id,
   });
 
   function handleFiltersChange(patch: Partial<FiltersValue>) {

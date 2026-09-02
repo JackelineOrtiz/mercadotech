@@ -23,9 +23,14 @@ export interface UseProductsOptions {
   // Mismo patrón que categorySlug, fijo desde /tienda/[sellerId] (fuera del
   // PDF de la spec — storefront público del vendedor).
   sellerId?: string;
+  // Fase 7.5, hallazgo real: un vendedor navegando SU PROPIO catálogo
+  // veía sus productos con "Agregar al carrito" deshabilitado. Solo lo
+  // pasan home/categoría/búsqueda (nunca /tienda/[sellerId], que sí debe
+  // mostrar TODO lo del vendedor, incluso al propio dueño navegándola).
+  excludeSellerId?: string;
 }
 
-export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {}) {
+export function useProducts({ categorySlug, sellerId, excludeSellerId }: UseProductsOptions = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -53,6 +58,7 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
     listActiveProducts({
       categorySlug,
       sellerId,
+      excludeSellerId,
       search,
       condition: conditionKey ? (conditionKey.split(",") as ProductCondition[]) : undefined,
       minPrice,
@@ -70,7 +76,18 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
         setError((err as Error).message);
         setLoading(false);
       });
-  }, [categorySlug, sellerId, search, conditionKey, minPrice, maxPrice, sort, hideOutOfStock, page]);
+  }, [
+    categorySlug,
+    sellerId,
+    excludeSellerId,
+    search,
+    conditionKey,
+    minPrice,
+    maxPrice,
+    sort,
+    hideOutOfStock,
+    page,
+  ]);
 
   useEffect(() => {
     fetchProducts();

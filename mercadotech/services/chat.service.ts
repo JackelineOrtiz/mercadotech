@@ -32,6 +32,28 @@ export interface AskOptions {
   maxContextChars?: number;
 }
 
+// Fase 7.5, hallazgo real (subagente: 18 hilos reales con réplicas, 16
+// con al menos un problema): con historial, la búsqueda de CADA réplica
+// se hacía solo con el texto de esa réplica — "¿cuál de esas dos es más
+// liviana?" no tiene ningún término de producto, así que la búsqueda
+// semántica traía fichas random no relacionadas, y el modelo terminaba
+// respondiendo sobre ESAS en vez de usar el historial (ej. real: "cuál
+// de esas dos" sobre dos laptops recomendadas terminó comparando una
+// consola de videojuegos contra una silla gamer). Fix: la QUERY QUE SE
+// EMBEBE para buscar combina el/los último(s) turno(s) reales de la
+// conversación (donde suele estar el nombre real del producto, porque el
+// propio asistente lo dijo en su respuesta anterior) con la pregunta
+// actual. Nunca se usa esta combinación como el "query" que ve el
+// usuario ni como el mensaje que recibe el modelo — solo alimenta el
+// embedding de búsqueda.
+const RETRIEVAL_HISTORY_TURNS = 2;
+
+function buildRetrievalQuery(query: string, history: ChatHistoryTurn[]): string {
+  if (history.length === 0) return query;
+  const recent = history.slice(-RETRIEVAL_HISTORY_TURNS).map((turn) => turn.content);
+  return [...recent, query].join("\n");
+}
+
 // Igual que embedding.service.ts/vector-search.service.ts: sin default de
 // cliente — siempre se llama desde el Route Handler con el cliente de
 // SESIÓN, para que la búsqueda respete la RLS de knowledge_embeddings.
@@ -56,7 +78,8 @@ export async function ask(
   const systemInstructions =
     mode === "compras" ? SHOPPING_SYSTEM_INSTRUCTIONS : SUPPORT_SYSTEM_INSTRUCTIONS;
 
-  const embedding = await generateEmbedding(query);
+  const retrievalQuery = buildRetrievalQuery(query, history);
+  const embedding = await generateEmbedding(retrievalQuery);
   const matches = await searchByEmbedding(
     embedding,
     { sourceType, topK: opts.topK, threshold: opts.similarityThreshold },
