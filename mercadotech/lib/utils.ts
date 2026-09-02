@@ -39,3 +39,29 @@ export function formatPrice(value: number | string): string {
   const numeric = typeof value === "string" ? Number(value) : value;
   return priceFormatter.format(numeric);
 }
+
+// Fase 7.5, hallazgo real de un usuario probando /login en producción:
+// useAuth (y app/(shop)/perfil/page.tsx) siempre mostraron
+// `(err as Error).message` crudo — el mensaje real de Supabase/del
+// navegador, en inglés, sin traducir. La mayoría de las veces es
+// "Invalid login credentials" (parseable, aunque en inglés), pero en un
+// intento real el fetch mismo falló (red intermitente, cold start) y lo
+// que se vio en pantalla fue literalmente "Failed to fetch" — cero
+// sentido para alguien que no lee ese error todos los días. Traduce los
+// casos conocidos; cualquier mensaje no mapeado se devuelve tal cual
+// (mejor un inglés real que un texto inventado que no corresponda al
+// error real).
+const AUTH_ERROR_TRANSLATIONS: Record<string, string> = {
+  "Invalid login credentials": "Correo o contraseña incorrectos.",
+  "Failed to fetch": "No se pudo conectar con el servidor. Revisá tu conexión e intentá de nuevo.",
+  "User already registered": "Ya existe una cuenta con ese correo.",
+  "Email not confirmed": "Todavía no confirmaste tu correo. Revisá tu bandeja de entrada.",
+  "Password should be at least 6 characters":
+    "La contraseña debe tener al menos 6 caracteres.",
+  "New password should be different from the old password":
+    "La nueva contraseña debe ser distinta de la anterior.",
+};
+
+export function translateAuthError(message: string): string {
+  return AUTH_ERROR_TRANSLATIONS[message] ?? message;
+}

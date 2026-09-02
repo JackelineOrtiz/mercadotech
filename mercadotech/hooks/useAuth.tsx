@@ -13,6 +13,7 @@ import * as authService from "@/services/auth.service";
 import type { RegisterInput, UpdateProfileInput } from "@/services/auth.service";
 import * as storageService from "@/services/storage.service";
 import type { Profile } from "@/types/user";
+import { translateAuthError } from "@/lib/utils";
 
 export interface UseAuthState {
   user: User | null;
@@ -79,7 +80,7 @@ function useAuthState() {
       setState((s) => ({ ...s, loading: false }));
       return data;
     } catch (err) {
-      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
       throw err;
     }
   }, []);
@@ -96,7 +97,7 @@ function useAuthState() {
       setState((s) => ({ ...s, loading: false }));
       return { ...data, profile };
     } catch (err) {
-      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
       throw err;
     }
   }, [loadProfile]);
@@ -111,7 +112,7 @@ function useAuthState() {
       await authService.requestPasswordReset(email);
       setState((s) => ({ ...s, loading: false }));
     } catch (err) {
-      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
       throw err;
     }
   }, []);
@@ -122,7 +123,7 @@ function useAuthState() {
       await authService.updatePassword(password);
       setState((s) => ({ ...s, loading: false }));
     } catch (err) {
-      setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+      setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
       throw err;
     }
   }, []);
@@ -137,7 +138,7 @@ function useAuthState() {
         await authService.changePassword(email, currentPassword, newPassword);
         setState((s) => ({ ...s, loading: false }));
       } catch (err) {
-        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
         throw err;
       }
     },
@@ -155,7 +156,7 @@ function useAuthState() {
         await loadProfile();
         setState((s) => ({ ...s, loading: false }));
       } catch (err) {
-        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
         throw err;
       }
     },
@@ -171,7 +172,7 @@ function useAuthState() {
         await loadProfile();
         setState((s) => ({ ...s, loading: false }));
       } catch (err) {
-        setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
+        setState((s) => ({ ...s, loading: false, error: translateAuthError((err as Error).message) }));
         throw err;
       }
     },
