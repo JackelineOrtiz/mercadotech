@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MAX_CART_QUANTITY } from "@/lib/constants/product";
 import type { Product } from "@/types/product";
 
 export interface BuyBoxProps {
@@ -63,7 +64,10 @@ export function BuyBox({
             onChange={(e) => setQuantity(Number(e.target.value))}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
-            {Array.from({ length: product.stock }, (_, i) => i + 1).map((n) => (
+            {Array.from(
+              { length: Math.min(product.stock, MAX_CART_QUANTITY) },
+              (_, i) => i + 1,
+            ).map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>

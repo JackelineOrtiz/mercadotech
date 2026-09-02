@@ -148,6 +148,18 @@ describe("product.service.listActiveProducts", () => {
     expect(call?.chain).toContainEqual({ method: "lte", args: ["price", 500] });
   });
 
+  it("hideOutOfStock arma gt('stock', 0); sin el filtro, no se agrega (Fase 7.5)", async () => {
+    const supabase = mockSupabase({ products: { select: [baseRow()], count: 1 } });
+
+    await listActiveProducts({ hideOutOfStock: true }, supabase);
+    const withFilter = supabase.calls.filter((c) => c.table === "products" && c.op === "select").at(-1);
+    expect(withFilter?.chain).toContainEqual({ method: "gt", args: ["stock", 0] });
+
+    await listActiveProducts({}, supabase);
+    const withoutFilter = supabase.calls.filter((c) => c.table === "products" && c.op === "select").at(-1);
+    expect(withoutFilter?.chain.some((c) => c.method === "gt")).toBe(false);
+  });
+
   it("sort=precio_asc/precio_desc ordena por price; sin sort, por created_at desc", async () => {
     const supabase = mockSupabase({ products: { select: [baseRow()], count: 1 } });
     await listActiveProducts({ sort: "precio_asc" }, supabase);

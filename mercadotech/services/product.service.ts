@@ -20,6 +20,13 @@ export interface ProductFilters {
   // (/tienda/[sellerId]) — reusa este mismo filtro en vez de una query
   // aparte, is_active sigue aplicándose igual que en el catálogo normal.
   sellerId?: string;
+  // Fase 7.5, hallazgo real: productos sin stock se mostraban mezclados en
+  // el catálogo con los disponibles ("Sin unidades" al lado de comprables).
+  // Filtro EN LA QUERY (no client-side después de traer la página) para
+  // que `total`/la paginación sigan siendo correctos con el filtro
+  // aplicado — filtrar después de paginar dejaría páginas con menos ítems
+  // de los que dice el conteo.
+  hideOutOfStock?: boolean;
 }
 
 // Forma real de la fila que devuelve el select anidado — product_images y
@@ -110,6 +117,10 @@ export async function listActiveProducts(
 
   if (filters.maxPrice !== undefined) {
     query = query.lte("price", filters.maxPrice);
+  }
+
+  if (filters.hideOutOfStock) {
+    query = query.gt("stock", 0);
   }
 
   switch (filters.sort) {

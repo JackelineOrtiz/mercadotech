@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { ProductImage } from "@/components/shared/ProductImage";
 import { Price } from "@/components/shared/Price";
 import { Button } from "@/components/ui/button";
+import { MAX_CART_QUANTITY } from "@/lib/constants/product";
 import type { CartItem } from "@/types/cart";
 
 export interface CartItemRowProps {
@@ -42,7 +43,10 @@ export function CartItemRow({ item, onQuantityChange, onRemove }: CartItemRowPro
         onChange={(e) => onQuantityChange(Number(e.target.value))}
         className="h-9 rounded-md border border-input bg-background px-2 text-sm"
       >
-        {Array.from({ length: item.product.stock }, (_, i) => i + 1).map((n) => (
+        {Array.from(
+          { length: Math.min(item.product.stock, MAX_CART_QUANTITY) },
+          (_, i) => i + 1,
+        ).map((n) => (
           <option key={n} value={n}>
             {n}
           </option>

@@ -3,6 +3,9 @@ import { NavLink } from "@/components/layout/NavLink";
 const LINKS = [
   { href: "/vendedor/productos", label: "Mis productos" },
   { href: "/vendedor/pedidos", label: "Pedidos" },
+  // Fase 7.5: antes solo se podía responder entrando a la página pública
+  // de cada producto — sin ningún link acá que lo dijera.
+  { href: "/vendedor/preguntas", label: "Preguntas" },
   { href: "/vendedor/publicar", label: "Publicar" },
 ];
 

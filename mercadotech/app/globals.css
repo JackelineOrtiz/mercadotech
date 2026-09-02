@@ -135,4 +135,14 @@
        navegador. */
     @apply bg-background text-foreground font-sans;
   }
+  /* Hallazgo real (Fase 7.5): SearchBar agregó su propia "x" para limpiar
+     la búsqueda, pero <input type="search"> ya trae una nativa en Chrome/
+     Safari (nunca en Firefox) — sin esto quedaban las dos superpuestas.
+     Se suprime la nativa globalmente: la propia siempre reemplaza, en
+     cualquier input type="search" del proyecto, no solo en SearchBar. */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }

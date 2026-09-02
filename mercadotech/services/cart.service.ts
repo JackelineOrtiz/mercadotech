@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { CartItem } from "@/types/cart";
 import { getPublicUrl } from "@/services/storage.service";
+import { MAX_CART_QUANTITY } from "@/lib/constants/product";
 
 type Client = SupabaseClient<Database>;
 
@@ -104,7 +105,7 @@ export async function addItem(
 
   if (existing) {
     const requested = existing.quantity + quantity;
-    const nextQuantity = Math.min(requested, product.stock);
+    const nextQuantity = Math.min(requested, product.stock, MAX_CART_QUANTITY);
     const { error } = await supabase
       .from("cart_items")
       .update({ quantity: nextQuantity })
@@ -113,7 +114,7 @@ export async function addItem(
     return { added: nextQuantity - existing.quantity, capped: nextQuantity < requested };
   }
 
-  const nextQuantity = Math.min(quantity, product.stock);
+  const nextQuantity = Math.min(quantity, product.stock, MAX_CART_QUANTITY);
   const { error } = await supabase.from("cart_items").insert({
     user_id: userId,
     product_id: productId,
@@ -123,11 +124,14 @@ export async function addItem(
   return { added: nextQuantity, capped: nextQuantity < quantity };
 }
 
-// Clampea al stock actual, mismo criterio que addItem (Fase 5.6: hallazgo
-// del lab de gobernanza — antes de esto era la única de las dos funciones
-// que no lo hacía). Hoy es defensa en profundidad, no un fix de un bug
-// visible: CartItemRow ya solo ofrece 1..stock en su <select>, así que
-// ningún caller real de la UI manda un valor fuera de rango.
+// Clampea al stock actual Y a MAX_CART_QUANTITY, mismo criterio que
+// addItem (Fase 5.6: hallazgo del lab de gobernanza — antes de esto era
+// la única de las dos funciones que no lo hacía). El tope de cantidad es
+// defensa en profundidad real, no solo teórica (Fase 7.5): un producto de
+// prueba con stock=10000 permitió pedir 1553 unidades y desbordó
+// numeric(12,2) de orders.total al hacer checkout — CartItemRow ya limita
+// su <select> a MAX_CART_QUANTITY, pero este service nunca debe confiar
+// solo en eso.
 export async function updateQuantity(
   cartItemId: string,
   quantity: number,
@@ -149,7 +153,7 @@ export async function updateQuantity(
 
   const { error } = await supabase
     .from("cart_items")
-    .update({ quantity: Math.min(quantity, product.stock) })
+    .update({ quantity: Math.min(quantity, product.stock, MAX_CART_QUANTITY) })
     .eq("id", cartItemId);
   if (error) throw error;
 }
