@@ -65,7 +65,35 @@ export async function getItems(
     .order("created_at")
     .returns<CartItemQueryRow[]>();
   if (error) throw error;
-  return data.map(mapCartItem);
+  const items = data.map(mapCartItem);
+
+  // Fase 7.5, hallazgo real en producción (usuario real, no dato de
+  // prueba): addItem/updateQuantity ya recortan a min(stock,
+  // MAX_CART_QUANTITY) al ESCRIBIR (ver comentario de
+  // lib/constants/product.ts), pero una fila insertada ANTES de que ese
+  // tope existiera queda con una cantidad vieja más alta — y getItems
+  // nunca la corregía al LEER. Resultado observable: CartItemRow no
+  // puede mostrar ese valor (su <select> solo ofrece 1..min(stock,
+  // MAX_CART_QUANTITY)), el navegador cae al primer <option> ("1") con
+  // un <select> controlado sin ninguna opción que matchee el value real,
+  // mientras el subtotal sigue sumando con la cantidad vieja — desfase
+  // real entre lo que se ve y lo que se cobra (confirmado en vivo:
+  // "insta 360", el mismo producto de prueba stock=10000 del comentario
+  // de MAX_CART_QUANTITY, con una fila de carrito en quantity=10000 de
+  // antes del fix). Se corrige Y se persiste acá (no solo se recorta
+  // para esta respuesta) — mismo criterio de "nunca confiar solo en la
+  // escritura anterior" que ya regía updateQuantity.
+  await Promise.all(
+    items.map((item) => {
+      if (!item.product) return null;
+      const cap = Math.min(item.product.stock, MAX_CART_QUANTITY);
+      if (item.quantity <= cap) return null;
+      item.quantity = cap;
+      return supabase.from("cart_items").update({ quantity: cap }).eq("id", item.id);
+    }),
+  );
+
+  return items;
 }
 
 // unique(user_id, product_id): si ya está en el carrito, SUMA cantidad (no

@@ -32,6 +32,35 @@ export interface AskOptions {
   maxContextChars?: number;
 }
 
+// Fase 7.5, hallazgo real validando el asistente en vivo: con UNA sola
+// fuente recuperada (una cámara, para "qué laptop me recomiendas para
+// diseño") el atajo de NO_CONTEXT_ANSWER no aplica (sources.length es 1,
+// no 0) — el modelo respondió citando esa fuente [1] como "no relacionada"
+// y a continuación INVENTÓ tres laptops completas ("HP Envy x360", "Acer
+// Aspire 3", "Lenovo IdeaPad 330S", ninguna existe en el catálogo real de
+// MercadoTech) citándolas como [2], [3] y [4] — números que no
+// corresponden a NINGUNA fuente real del contexto (context.sources solo
+// tenía índice 1). El prompt ya prohíbe esto explícitamente (nunca
+// inventar productos, citar el número TAL COMO APARECE en el contexto) y
+// el modelo lo violó igual — mismo techo de cumplimiento ya documentado
+// para precios. A diferencia de esos casos, ACÁ SÍ hay una señal
+// objetiva y verificable con pura lógica, sin necesitar otro modelo ni
+// otra llamada: un citado [N] con N mayor al total de fuentes reales es,
+// por definición, una fuente que no existe. Corte determinístico
+// post-generación (mismo espíritu que NO_CONTEXT_ANSWER, pero DESPUÉS de
+// llamar al modelo en vez de antes): si la respuesta cita un índice fuera
+// de rango, se descarta ENTERA y se reemplaza por el mensaje fijo — no se
+// intenta "arreglar" ni recortar el texto, porque si citó una fuente que
+// no existe, no hay forma de confiar en el resto de lo que dijo tampoco.
+const CITATION_PATTERN = /\[(\d+)\]/g;
+
+function citesOutOfRangeSource(text: string, sourceCount: number): boolean {
+  for (const match of text.matchAll(CITATION_PATTERN)) {
+    if (Number(match[1]) > sourceCount) return true;
+  }
+  return false;
+}
+
 // Fase 7.5, hallazgo real (subagente: 18 hilos reales con réplicas, 16
 // con al menos un problema): con historial, la búsqueda de CADA réplica
 // se hacía solo con el texto de esa réplica — "¿cuál de esas dos es más
@@ -116,6 +145,21 @@ export async function ask(
   }
 
   const completion = await generateCompletion(systemInstructions, context.userMessage, history);
+
+  if (citesOutOfRangeSource(completion.text, context.sources.length)) {
+    return {
+      query,
+      answer: NO_CONTEXT_ANSWER[mode],
+      hasRelevantContext: false,
+      sources: [],
+      metadata: {
+        model: `${completion.model} (respuesta descartada: citó una fuente inexistente)`,
+        retrievedCount: matches.length,
+        usedSourceCount: 0,
+        contextTruncated: context.stats.contextTruncated,
+      },
+    };
+  }
 
   return {
     query,

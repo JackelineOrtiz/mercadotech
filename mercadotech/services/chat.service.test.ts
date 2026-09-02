@@ -173,4 +173,62 @@ describe("chat.service.ask", () => {
     });
     expect(mockedGenerateCompletion).not.toHaveBeenCalled();
   });
+
+  // Fase 7.5, hallazgo real validando el asistente en vivo: con UNA sola
+  // fuente recuperada (una cámara, para "qué laptop me recomiendas para
+  // diseño"), el modelo citó esa fuente [1] como "no relacionada" y
+  // ADEMÁS inventó 3 laptops que no existen en el catálogo, citándolas
+  // como [2], [3] y [4] — números que no corresponden a ninguna fuente
+  // real (solo había 1). Corte determinístico post-generación: un citado
+  // fuera de rango descarta la respuesta entera.
+  describe("citó una fuente que no existe (índice fuera de rango)", () => {
+    it("1 sola fuente real pero el texto cita [2]: descarta la respuesta, no llega al cliente", async () => {
+      mockedGenerateCompletion.mockClear();
+      mockedGenerateCompletion.mockResolvedValueOnce({
+        text: 'El producto [1] no se relaciona con tu pedido. Te recomiendo la laptop [2], ideal para diseño.',
+        model: "meta-llama/Llama-3.1-8B-Instruct",
+        stopReason: "stop",
+      });
+      const supabase = supabaseWithMatches([
+        {
+          source_type: "producto",
+          source_id: "p1",
+          content: "Cámara de acción Insta360 ONE X2, resistente al agua.",
+          metadata: { title: "Insta360 ONE X2", price: 6660000, category: "Accesorios" },
+          similarity: 0.75,
+        },
+      ]);
+
+      const result = await ask("qué laptop me recomiendas para diseño", "compras", {}, supabase);
+
+      expect(result.answer).toMatch(/no encontré productos/i);
+      expect(result.hasRelevantContext).toBe(false);
+      expect(result.sources).toEqual([]);
+      expect(result.metadata.usedSourceCount).toBe(0);
+    });
+
+    it("cita solo índices dentro de rango: no descarta la respuesta real", async () => {
+      mockedGenerateCompletion.mockClear();
+      mockedGenerateCompletion.mockResolvedValueOnce({
+        text: "La laptop [1] es una buena opción para diseño.",
+        model: "meta-llama/Llama-3.1-8B-Instruct",
+        stopReason: "stop",
+      });
+      const supabase = supabaseWithMatches([
+        {
+          source_type: "producto",
+          source_id: "p1",
+          content: "Laptop para diseño gráfico, 32GB RAM.",
+          metadata: { title: "Laptop Diseño Pro", price: 3200000, category: "Laptops" },
+          similarity: 0.9,
+        },
+      ]);
+
+      const result = await ask("qué laptop me recomiendas para diseño", "compras", {}, supabase);
+
+      expect(result.answer).toBe("La laptop [1] es una buena opción para diseño.");
+      expect(result.hasRelevantContext).toBe(true);
+      expect(result.sources).toHaveLength(1);
+    });
+  });
 });
