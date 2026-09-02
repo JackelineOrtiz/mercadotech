@@ -15,6 +15,12 @@ export interface ProfileFormValues {
 export interface ProfileFormProps {
   initialValues: ProfileFormValues;
   avatarUrl: string | null;
+  // Fase 7.5, hallazgo real: page.tsx ya capturaba user.email (lo necesita
+  // changePassword para reautenticar) pero nunca llegaba a la UI — "Mi
+  // perfil" no mostraba con qué correo estás logueado. Solo lectura: el
+  // email se cambia desde Supabase Auth, no desde `profiles` — no hay
+  // `onEmailChange` acá a propósito.
+  email: string;
   onSubmit: (values: ProfileFormValues) => void;
   onAvatarChange: (file: File) => void;
   loading?: boolean;
@@ -28,6 +34,7 @@ export interface ProfileFormProps {
 export function ProfileForm({
   initialValues,
   avatarUrl,
+  email,
   onSubmit,
   onAvatarChange,
   loading = false,
@@ -88,6 +95,14 @@ export function ProfileForm({
             onChange={handleFileChange}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="profile-email">Correo</Label>
+        <Input id="profile-email" data-testid="profile-email" value={email} disabled readOnly />
+        <p className="text-xs text-muted-foreground">
+          El correo no se puede cambiar desde acá.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

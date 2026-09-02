@@ -36,15 +36,25 @@ export default function SoportePage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
+  // Un solo lugar para limpiar el form al cerrar, sin importar CÓMO se
+  // cierra (botón "Cancelar", la X, click afuera, Escape, o un ticket
+  // creado con éxito) — hallazgo real probando la app: "Cancelar" antes
+  // solo cerraba, dejaba el texto escrito para la próxima apertura.
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setSubject("");
+      setMessage("");
+    }
+  }
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!subject.trim() || !message.trim()) return;
     try {
       await create(subject.trim(), message.trim());
       toast.success("Ticket creado.");
-      setOpen(false);
-      setSubject("");
-      setMessage("");
+      handleOpenChange(false);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -82,7 +92,7 @@ export default function SoportePage() {
               lectura, decisión 5 de la spec la había pospuesto a la Sesión
               8 (agente de voz); pedido explícito del usuario de
               construirlo ahora igual. */}
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger
               render={
                 <Button size="sm" data-testid="ticket-create-open">
@@ -120,7 +130,7 @@ export default function SoportePage() {
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                     Cancelar
                   </Button>
                   <Button type="submit" data-testid="ticket-create-submit" disabled={creating}>
