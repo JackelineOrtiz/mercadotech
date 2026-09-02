@@ -1,9 +1,53 @@
 import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import type { Question } from "@/types/question";
+import type { MyQuestion, Question } from "@/types/question";
+import { getPublicUrl } from "@/services/storage.service";
 
 type Client = SupabaseClient<Database>;
+
+type MyQuestionRow = Question & {
+  products: {
+    title: string;
+    product_images: { image_path: string; position: number }[];
+  } | null;
+};
+
+// Fase 7.5, hallazgo real: no existía ningún lugar para que un comprador
+// revisara DESPUÉS una pregunta que ya había hecho — había que recordar en
+// qué producto se preguntó y volver a esa ficha para ver si ya tenía
+// respuesta. questions_select_all es pública (using (true)), así que
+// filtrar por user_id acá no depende de ningún permiso especial — join
+// anidado a products (no dos queries, a diferencia de
+// seller.service.listMyQuestions: acá no hace falta la lista de "mis
+// productos" como paso intermedio, un solo product_id por pregunta ya
+// alcanza para el join). image_url resuelta acá mismo (misma convención
+// que product.service.ts: la UI nunca recibe un image_path crudo), pasando
+// el cliente inyectado a getPublicUrl (no el bug ya documentado en
+// cart.service.ts de nunca propagarlo).
+export async function listByUser(
+  userId: string,
+  supabase: Client = createClient(),
+): Promise<MyQuestion[]> {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("*, products(title, product_images(image_path, position))")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .returns<MyQuestionRow[]>();
+  if (error) throw error;
+
+  return data.map(({ products, ...question }) => {
+    const cover = products
+      ? [...products.product_images].sort((a, b) => a.position - b.position)[0]
+      : undefined;
+    return {
+      ...question,
+      productTitle: products?.title ?? "",
+      productImageUrl: cover ? getPublicUrl("product-images", cover.image_path, supabase) : null,
+    };
+  });
+}
 
 export async function listByProduct(
   productId: string,

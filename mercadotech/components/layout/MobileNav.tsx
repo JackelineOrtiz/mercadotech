@@ -76,6 +76,12 @@ export function MobileNav({ categories, user, onLogout }: MobileNavProps) {
           {user ? (
             <SheetClose
               nativeButton={false}
+              render={<Link href="/preguntas" className={LINK_CLASS}>Mis preguntas</Link>}
+            />
+          ) : null}
+          {user ? (
+            <SheetClose
+              nativeButton={false}
               render={<Link href="/asistente" className={LINK_CLASS}>Asistente</Link>}
             />
           ) : null}

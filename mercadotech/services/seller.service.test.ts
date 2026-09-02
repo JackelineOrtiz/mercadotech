@@ -9,7 +9,7 @@ import {
   getMyOrderDetail,
   updateOrderStatus,
   getSellerPublicProfile,
-  listMyPendingQuestions,
+  listMyQuestions,
 } from "@/services/seller.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
@@ -242,17 +242,20 @@ describe("seller.service.updateOrderStatus", () => {
 // Fase 7.5: antes solo se podía responder entrando a la página pública de
 // cada producto — sin ningún lugar en el panel que juntara las
 // pendientes. questions_select_all es pública (using (true)), así que no
-// hay nada de RLS que probar acá, solo el cruce con "mis productos" +
-// answer is null.
-describe("seller.service.listMyPendingQuestions", () => {
+// hay nada de RLS que probar acá, solo el cruce con "mis productos".
+// Hallazgo real #2 (mismo smoke test, después de que #1 ya estaba
+// resuelto): esta función SOLO traía answer is null — responder una
+// pregunta la hacía desaparecer sin dejar rastro de lo contestado. Ahora
+// trae todas (pendientes y respondidas); la UI las separa.
+describe("seller.service.listMyQuestions", () => {
   it("sin productos propios: devuelve [] sin consultar questions", async () => {
     const supabase = mockSupabase({ products: { select: [] } });
-    const questions = await listMyPendingQuestions("s1", supabase);
+    const questions = await listMyQuestions("s1", supabase);
     expect(questions).toEqual([]);
     expect(supabase.calls.some((c) => c.table === "questions")).toBe(false);
   });
 
-  it("resuelve productTitle por product_id y solo trae preguntas sin responder", async () => {
+  it("resuelve productTitle por product_id y trae TODAS las preguntas, respondidas incluidas", async () => {
     const supabase = mockSupabase({
       products: {
         select: [
@@ -276,15 +279,15 @@ describe("seller.service.listMyPendingQuestions", () => {
             product_id: "p2",
             user_id: "u2",
             question: "¿Es inalámbrico?",
-            answer: null,
-            answered_at: null,
+            answer: "Sí, 2.4GHz.",
+            answered_at: "2026-01-01T12:00:00.000Z",
             created_at: "2026-01-01",
           },
         ],
       },
     });
 
-    const questions = await listMyPendingQuestions("s1", supabase);
+    const questions = await listMyQuestions("s1", supabase);
 
     expect(questions).toEqual([
       {
@@ -302,21 +305,21 @@ describe("seller.service.listMyPendingQuestions", () => {
         product_id: "p2",
         user_id: "u2",
         question: "¿Es inalámbrico?",
-        answer: null,
-        answered_at: null,
+        answer: "Sí, 2.4GHz.",
+        answered_at: "2026-01-01T12:00:00.000Z",
         created_at: "2026-01-01",
         productTitle: "Mouse",
       },
     ]);
     const call = supabase.calls.find((c) => c.table === "questions" && c.op === "select");
-    expect(call?.chain).toContainEqual({ method: "is", args: ["answer", null] });
+    expect(call?.chain.some((c) => c.method === "is")).toBe(false);
   });
 
   it("propaga el error de leer los productos propios tal cual", async () => {
     const supabase = mockSupabase({
       products: { error: { message: "permission denied for table products" } },
     });
-    await expect(listMyPendingQuestions("s1", supabase)).rejects.toMatchObject({
+    await expect(listMyQuestions("s1", supabase)).rejects.toMatchObject({
       message: "permission denied for table products",
     });
   });
@@ -326,7 +329,7 @@ describe("seller.service.listMyPendingQuestions", () => {
       products: { select: [{ id: "p1", title: "Laptop" }] },
       questions: { error: { message: "permission denied for table questions" } },
     });
-    await expect(listMyPendingQuestions("s1", supabase)).rejects.toMatchObject({
+    await expect(listMyQuestions("s1", supabase)).rejects.toMatchObject({
       message: "permission denied for table questions",
     });
   });

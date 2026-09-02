@@ -14,6 +14,10 @@ const PROTECTED_PREFIXES = [
   "/soporte",
   "/perfil",
   "/admin",
+  // Fase 7.5, hallazgo real: "Mis preguntas" del comprador — mismo criterio
+  // que /pedidos, sin sentido para un anónimo (no puede haber hecho
+  // ninguna pregunta sin sesión, questions_insert_own ya lo exige).
+  "/preguntas",
 ];
 
 function requiresAuth(pathname: string): boolean {
