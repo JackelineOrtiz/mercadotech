@@ -9,6 +9,22 @@ import { searchByEmbedding } from "@/services/vector-search.service";
 
 type Client = SupabaseClient<Database>;
 
+// Fase 7.5, hallazgo real validando el asistente con datos reales: cuando
+// la búsqueda semántica no encuentra NADA relevante (context.sources
+// vacío), el modelo gratuito de Hugging Face no siempre respeta la regla
+// del prompt de admitir que no sabe — en varios casos inventó productos,
+// precios y hasta números de artículo de la FAQ que no existen, citándolos
+// como si fueran reales. Ningún ajuste de prompt lo garantiza al 100% con
+// un modelo así. Corte determinístico: si no hay NINGUNA fuente, ni
+// siquiera se llama al modelo — se responde con un mensaje fijo, cero
+// posibilidad de alucinar porque no hay generación de por medio.
+const NO_CONTEXT_ANSWER: Record<ChatMode, string> = {
+  compras:
+    "No encontré productos en el catálogo que coincidan con lo que buscas. Probá con otros términos o describime para qué lo necesitas.",
+  soporte:
+    "No tengo información sobre esto en los artículos de ayuda disponibles. Te recomiendo abrir un ticket de soporte para que el equipo lo revise.",
+};
+
 export interface AskOptions {
   topK?: number;
   similarityThreshold?: number;
@@ -48,12 +64,27 @@ export async function ask(
     maxContextChars: opts.maxContextChars,
   });
 
+  if (context.sources.length === 0) {
+    return {
+      query,
+      answer: NO_CONTEXT_ANSWER[mode],
+      hasRelevantContext: false,
+      sources: [],
+      metadata: {
+        model: "n/a (sin contexto, no se llamó al modelo)",
+        retrievedCount: matches.length,
+        usedSourceCount: 0,
+        contextTruncated: false,
+      },
+    };
+  }
+
   const completion = await generateCompletion(systemInstructions, context.userMessage);
 
   return {
     query,
     answer: completion.text,
-    hasRelevantContext: context.sources.length > 0,
+    hasRelevantContext: true,
     sources: context.sources,
     metadata: {
       model: completion.model,
