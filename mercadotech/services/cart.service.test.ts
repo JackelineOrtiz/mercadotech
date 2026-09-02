@@ -43,6 +43,87 @@ describe("cart.service.getItems", () => {
     const supabase = mockSupabase({ cart_items: { error: { message: "permission denied" } } });
     await expect(getItems("u1", supabase)).rejects.toMatchObject({ message: "permission denied" });
   });
+
+  // Fase 7.5, hallazgo real en producción: una fila insertada ANTES de
+  // que existiera el tope de MAX_CART_QUANTITY (10) queda con una
+  // cantidad vieja mucho más alta — getItems ahora la recorta Y la
+  // persiste, no solo la devuelve recortada para esta respuesta.
+  it("fila vieja con quantity por encima de min(stock, MAX_CART_QUANTITY): la recorta Y la persiste", async () => {
+    const supabase = mockSupabase({
+      cart_items: {
+        select: [
+          {
+            id: "c1",
+            product_id: "p1",
+            quantity: 10000,
+            products: {
+              id: "p1",
+              title: "insta 360",
+              price: 555555555,
+              stock: 10000,
+              product_images: [],
+            },
+          },
+        ],
+      },
+    });
+
+    const items = await getItems("u1", supabase);
+
+    expect(items[0].quantity).toBe(10);
+    expect(supabase.updates("cart_items")).toContainEqual({ quantity: 10 });
+  });
+
+  it("fila vieja por encima del stock (no de MAX_CART_QUANTITY): recorta al stock real", async () => {
+    const supabase = mockSupabase({
+      cart_items: {
+        select: [
+          {
+            id: "c1",
+            product_id: "p1",
+            quantity: 8,
+            products: { id: "p1", title: "Mouse", price: 100, stock: 3, product_images: [] },
+          },
+        ],
+      },
+    });
+
+    const items = await getItems("u1", supabase);
+
+    expect(items[0].quantity).toBe(3);
+    expect(supabase.updates("cart_items")).toContainEqual({ quantity: 3 });
+  });
+
+  it("cantidad ya dentro de los dos topes: no dispara ningún UPDATE", async () => {
+    const supabase = mockSupabase({
+      cart_items: {
+        select: [
+          {
+            id: "c1",
+            product_id: "p1",
+            quantity: 2,
+            products: { id: "p1", title: "Mouse", price: 100, stock: 5, product_images: [] },
+          },
+        ],
+      },
+    });
+
+    const items = await getItems("u1", supabase);
+
+    expect(items[0].quantity).toBe(2);
+    expect(supabase.updates("cart_items")).toEqual([]);
+  });
+
+  it("producto null (borrado/desactivado): no intenta corregir nada, no revienta", async () => {
+    const supabase = mockSupabase({
+      cart_items: { select: [{ id: "c1", product_id: "p1", quantity: 10000, products: null }] },
+    });
+
+    const items = await getItems("u1", supabase);
+
+    expect(items[0].quantity).toBe(10000);
+    expect(supabase.updates("cart_items")).toEqual([]);
+  });
 });
 
 // Cliente Supabase SIEMPRE inyectado (decisión 7) — nunca vi.mock de

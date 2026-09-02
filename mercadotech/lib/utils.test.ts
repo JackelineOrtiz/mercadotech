@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, translateAuthError } from "@/lib/utils";
 
-// Sin mocks (archivo puro). SOLO cn y formatPrice existen en lib/utils.ts
-// (decisión 3 de la spec) — nada de fechas, no hay ninguna función de
-// formateo de fechas en el repo.
+// Sin mocks (archivo puro). cn y formatPrice existen desde la decisión 3
+// de la spec; translateAuthError se agregó en la Fase 7.5 (hallazgo real,
+// ver su propio comentario en lib/utils.ts) — nada de fechas, no hay
+// ninguna función de formateo de fechas en el repo.
 
 describe("formatPrice", () => {
   it("formatea 0", () => {
@@ -32,6 +33,29 @@ describe("formatPrice", () => {
 
   it("entrada number da el mismo resultado que el string equivalente", () => {
     expect(formatPrice(219)).toBe(formatPrice("219.00"));
+  });
+});
+
+// Fase 7.5, hallazgo real de un usuario probando /login en producción:
+// un intento real de login mostró literalmente "Failed to fetch" en la
+// pantalla — el mensaje crudo de Supabase/del navegador, sin traducir.
+describe("translateAuthError", () => {
+  it("traduce 'Invalid login credentials'", () => {
+    expect(translateAuthError("Invalid login credentials")).toBe(
+      "Correo o contraseña incorrectos.",
+    );
+  });
+
+  it("traduce 'Failed to fetch' (hallazgo real, error de red sin traducir)", () => {
+    expect(translateAuthError("Failed to fetch")).toBe(
+      "No se pudo conectar con el servidor. Revisá tu conexión e intentá de nuevo.",
+    );
+  });
+
+  it("un mensaje no mapeado se devuelve tal cual (mejor inglés real que un texto inventado)", () => {
+    expect(translateAuthError("algo que Supabase nunca dijo")).toBe(
+      "algo que Supabase nunca dijo",
+    );
   });
 });
 

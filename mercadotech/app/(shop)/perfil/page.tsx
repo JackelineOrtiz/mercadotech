@@ -10,6 +10,7 @@ import {
   type ChangePasswordFormValues,
 } from "@/components/auth/ChangePasswordForm";
 import { LoadingState } from "@/components/shared/LoadingState";
+import { translateAuthError } from "@/lib/utils";
 
 // Bajo PROTECTED_PREFIXES (lib/supabase/middleware.ts) — a diferencia de
 // actualizar-contrasena, esta ruta SÍ necesita sesión normal para
@@ -97,8 +98,9 @@ export default function PerfilPage() {
       router.refresh();
     } catch (err) {
       // Incluye el caso real de Supabase "Invalid login credentials" si la
-      // contraseña actual ingresada es incorrecta.
-      setPasswordError((err as Error).message);
+      // contraseña actual ingresada es incorrecta — translateAuthError lo
+      // muestra en español ("Correo o contraseña incorrectos.").
+      setPasswordError(translateAuthError((err as Error).message));
     } finally {
       setPasswordSubmitting(false);
     }
