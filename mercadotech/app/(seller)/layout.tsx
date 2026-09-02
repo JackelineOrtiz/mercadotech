@@ -90,7 +90,13 @@ function SellerLayoutContent({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar categories={categories} cartCount={cartCount} user={profile} onLogout={onLogout} />
+      <Navbar
+        categories={categories}
+        cartCount={cartCount}
+        user={profile}
+        onLogout={onLogout}
+        searchBasePath="/vendedor/productos"
+      />
 
       <div className="flex flex-1">
         <aside className="hidden w-56 shrink-0 border-r border-border md:block">

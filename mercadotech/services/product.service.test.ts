@@ -160,6 +160,18 @@ describe("product.service.listActiveProducts", () => {
     expect(withoutFilter?.chain.some((c) => c.method === "gt")).toBe(false);
   });
 
+  it("excludeSellerId arma neq('seller_id', ...); distinto de sellerId (que filtra a un vendedor puntual)", async () => {
+    const supabase = mockSupabase({ products: { select: [baseRow()], count: 1 } });
+
+    await listActiveProducts({ excludeSellerId: "s1" }, supabase);
+    const call = supabase.calls.filter((c) => c.table === "products" && c.op === "select").at(-1);
+    expect(call?.chain).toContainEqual({ method: "neq", args: ["seller_id", "s1"] });
+
+    await listActiveProducts({}, supabase);
+    const withoutFilter = supabase.calls.filter((c) => c.table === "products" && c.op === "select").at(-1);
+    expect(withoutFilter?.chain.some((c) => c.method === "neq")).toBe(false);
+  });
+
   it("sort=precio_asc/precio_desc ordena por price; sin sort, por created_at desc", async () => {
     const supabase = mockSupabase({ products: { select: [baseRow()], count: 1 } });
     await listActiveProducts({ sort: "precio_asc" }, supabase);

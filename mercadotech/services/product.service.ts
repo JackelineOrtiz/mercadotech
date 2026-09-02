@@ -27,6 +27,14 @@ export interface ProductFilters {
   // aplicado — filtrar después de paginar dejaría páginas con menos ítems
   // de los que dice el conteo.
   hideOutOfStock?: boolean;
+  // Fase 7.5, hallazgo real: un vendedor navegando el catálogo público veía
+  // sus propios productos con "Agregar al carrito" deshabilitado y sin
+  // poder marcarlos favoritos — sin ningún uso real ahí. Distinto de
+  // sellerId (que FILTRA a un vendedor puntual, para /tienda/[sellerId]):
+  // este EXCLUYE al vendedor logueado del catálogo general que él mismo
+  // navega — nunca se usa junto con sellerId (tienda pública sigue
+  // mostrando TODOS los productos de ese vendedor, incluso al dueño).
+  excludeSellerId?: string;
 }
 
 // Forma real de la fila que devuelve el select anidado — product_images y
@@ -89,6 +97,10 @@ export async function listActiveProducts(
 
   if (filters.sellerId) {
     query = query.eq("seller_id", filters.sellerId);
+  }
+
+  if (filters.excludeSellerId) {
+    query = query.neq("seller_id", filters.excludeSellerId);
   }
 
   if (filters.categorySlug) {

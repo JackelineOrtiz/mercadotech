@@ -138,6 +138,29 @@ describe("chat.service.ask", () => {
     );
   });
 
+  // Fase 7.5, hallazgo real (subagente: 18 hilos con réplicas, 16 con
+  // problemas): sin esto, la búsqueda de una réplica vaga ("¿cuál de esas
+  // dos es más liviana?") solo usaba ese texto, sin ningún término de
+  // producto, y traía fichas random — el modelo terminaba respondiendo
+  // sobre productos no relacionados en vez de usar el historial.
+  it("la búsqueda combina el/los último(s) turno(s) del historial con la pregunta actual (nunca sin historial)", async () => {
+    mockedGenerateEmbedding.mockClear();
+    const supabaseSinHistorial = supabaseWithMatches([]);
+    await ask("hola", "compras", {}, supabaseSinHistorial);
+    expect(mockedGenerateEmbedding).toHaveBeenCalledWith("hola");
+
+    mockedGenerateEmbedding.mockClear();
+    const supabaseConHistorial = supabaseWithMatches([]);
+    const history = [
+      { role: "user" as const, content: "tienen laptop lenovo ideapad 3" },
+      { role: "assistant" as const, content: "Sí, la Lenovo IdeaPad 3 [1]." },
+    ];
+    await ask("¿esa tiene buena batería?", "compras", {}, supabaseConHistorial, history);
+    expect(mockedGenerateEmbedding).toHaveBeenCalledWith(
+      "tienen laptop lenovo ideapad 3\nSí, la Lenovo IdeaPad 3 [1].\n¿esa tiene buena batería?",
+    );
+  });
+
   it("propaga el error de la RPC de búsqueda tal cual, sin llegar a completion", async () => {
     mockedGenerateCompletion.mockClear();
     const supabase = mockSupabase(

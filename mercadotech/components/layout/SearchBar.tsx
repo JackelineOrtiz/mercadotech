@@ -10,12 +10,24 @@ export interface SearchBarProps {
   defaultValue?: string;
   onSearch?: (query: string) => void;
   className?: string;
+  // Fase 7.5, hallazgo real: dentro del panel del vendedor, buscar te
+  // sacaba siempre al catálogo público — pedido explícito de que ahí
+  // filtre "Mis productos" en el lugar. Navbar lo pasa como
+  // "/vendedor/productos" desde (seller)/layout.tsx; el resto de la app
+  // sigue con el default real (/buscar).
+  basePath?: string;
 }
 
-// Solo navega a /buscar?q= — la pestaña "Coincidencia exacta" vs
-// "Resultados con IA" (Fase 4.4) vive en la propia página de resultados,
-// no aquí.
-export function SearchBar({ defaultValue = "", onSearch, className }: SearchBarProps) {
+// Navega a `${basePath}?q=` — la pestaña "Coincidencia exacta" vs
+// "Resultados con IA" (Fase 4.4) vive en la propia página de resultados
+// de /buscar, no aquí (y no aplica cuando basePath es el panel del
+// vendedor).
+export function SearchBar({
+  defaultValue = "",
+  onSearch,
+  className,
+  basePath = "/buscar",
+}: SearchBarProps) {
   const [query, setQuery] = useState(defaultValue);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,7 +36,7 @@ export function SearchBar({ defaultValue = "", onSearch, className }: SearchBarP
     event.preventDefault();
     const trimmed = query.trim();
     onSearch?.(trimmed);
-    router.push(trimmed ? `/buscar?q=${encodeURIComponent(trimmed)}` : "/buscar");
+    router.push(trimmed ? `${basePath}?q=${encodeURIComponent(trimmed)}` : basePath);
   }
 
   // Hallazgo real (Fase 7.5): el <input type="search"> nativo trae su

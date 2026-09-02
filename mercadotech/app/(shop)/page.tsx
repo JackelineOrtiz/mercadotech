@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
 import { FiltersPanel, type FiltersValue } from "@/components/catalog/FiltersPanel";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
@@ -8,8 +9,10 @@ import { Pagination } from "@/components/catalog/Pagination";
 import { ErrorState } from "@/components/shared/ErrorState";
 
 function HomePageContent() {
-  const { items, total, page, loading, error, filters, setFilter, setPage, retry } =
-    useProducts();
+  const { profile } = useAuth();
+  const { items, total, page, loading, error, filters, setFilter, setPage, retry } = useProducts({
+    excludeSellerId: profile?.id,
+  });
 
   function handleFiltersChange(patch: Partial<FiltersValue>) {
     if (patch.condition !== undefined) setFilter("condition", patch.condition);
