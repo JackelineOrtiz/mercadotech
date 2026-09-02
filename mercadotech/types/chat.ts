@@ -14,6 +14,11 @@ export interface ChatSource {
   price?: number;
   image_url?: string | null;
   category?: string;
+  // El texto real que recibió el modelo (ContextSource.content) — permite
+  // mostrar una fuente "articulo_soporte" en un diálogo, en vez de un
+  // link genérico a /soporte sin destino específico (Fase 7.5, hallazgo
+  // real de un usuario probándolo).
+  content: string;
 }
 
 // Un turno de la conversación — historial en memoria del navegador (Fase

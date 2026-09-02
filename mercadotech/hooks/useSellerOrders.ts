@@ -107,3 +107,40 @@ export function useSellerOrders(sellerId?: string) {
 
   return { orders, byStatus, loading, error, move, retry: fetchOrders };
 }
+
+// Detalle de un solo pedido (Fase 7.5) — separado de useSellerOrders (que
+// trae TODOS los pedidos del vendedor para el kanban) porque la página de
+// detalle no necesita esa lista completa ni sus optimistic updates de
+// `move`; null tanto en "cargando" como en "no es mi pedido o no existe"
+// (mismo criterio 404 que useOrder para el comprador).
+export function useSellerOrder(sellerId: string | undefined, orderId: string) {
+  const [order, setOrder] = useState<SellerOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrder = useCallback(() => {
+    if (!sellerId) {
+      setOrder(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    sellerService
+      .getMyOrderDetail(sellerId, orderId)
+      .then((data) => {
+        setOrder(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError((err as Error).message);
+        setLoading(false);
+      });
+  }, [sellerId, orderId]);
+
+  useEffect(() => {
+    fetchOrder();
+  }, [fetchOrder]);
+
+  return { order, loading, error, retry: fetchOrder };
+}

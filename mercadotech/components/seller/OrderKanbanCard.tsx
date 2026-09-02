@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Price } from "@/components/shared/Price";
@@ -35,12 +36,26 @@ export function OrderKanbanCard({ order, draggable }: OrderKanbanCardProps) {
     >
       <span className="font-medium">Pedido #{order.id.slice(0, 8)}</span>
       <span className="text-xs text-muted-foreground">
-        {new Date(order.created_at).toLocaleDateString("es-PE")}
+        {new Date(order.created_at).toLocaleDateString("es-CO")}
       </span>
       <span className="text-xs text-muted-foreground">
         {order.myItems.length} {order.myItems.length === 1 ? "ítem mío" : "ítems míos"}
       </span>
       <Price value={order.myTotal} size="sm" />
+      {/* Hallazgo real (Fase 7.5): esta tarjeta nunca tuvo forma de ver el
+          detalle del pedido, en NINGUNA columna — no solo "Cancelado",
+          donde un usuario lo encontró primero. onPointerDown con
+          stopPropagation para que dnd-kit (los `listeners` del div padre)
+          nunca capture el puntero acá — sin esto, cualquier intento de
+          click en este link se interpretaría como el inicio de un drag. */}
+      <Link
+        href={`/vendedor/pedidos/${order.id}`}
+        data-testid={`kanban-card-detail-${order.id}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="mt-1 w-fit text-xs font-medium text-primary hover:underline"
+      >
+        Ver detalle
+      </Link>
     </div>
   );
 }

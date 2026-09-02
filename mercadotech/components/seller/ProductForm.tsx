@@ -121,7 +121,7 @@ export function ProductForm({
 
       <div className="grid grid-cols-3 gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="price">Precio (S/)</Label>
+          <Label htmlFor="price">Precio ($)</Label>
           <Input
             id="price"
             data-testid="product-form-price"
@@ -135,7 +135,7 @@ export function ProductForm({
           {errors.price ? <p className="text-sm text-destructive">{errors.price}</p> : null}
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="stock">Stock</Label>
+          <Label htmlFor="stock">Existencias</Label>
           <Input
             id="stock"
             data-testid="product-form-stock"

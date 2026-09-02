@@ -93,7 +93,7 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
       </fieldset>
 
       <div className="flex flex-col gap-2">
-        <Label>Precio (S/)</Label>
+        <Label>Precio ($)</Label>
         <div className="flex items-center gap-2">
           <Input
             type="number"

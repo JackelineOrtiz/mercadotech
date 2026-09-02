@@ -190,6 +190,52 @@ export async function listMyOrders(
   });
 }
 
+// Detalle de UN pedido para el vendedor (Fase 7.5, hallazgo real: las
+// tarjetas del kanban nunca tuvieron a dónde llevar — ver OrderKanbanCard).
+// Mismo criterio de dos queries que listMyOrders: order_items primero,
+// filtrado a "mis ítems" por RLS (order_items_select_buyer_seller_or_admin),
+// y solo si esa consulta trae algo se pide el pedido — así "no es mi
+// pedido" y "no existe" dan el mismo resultado (null), sin distinguirlos,
+// igual que order.service.ts getOrderById para el comprador (RLS filtra,
+// nunca revela que el pedido existe si no es propio).
+export async function getMyOrderDetail(
+  sellerId: string,
+  orderId: string,
+  supabase: Client = createClient(),
+): Promise<SellerOrder | null> {
+  const { data: itemRows, error: itemsError } = await supabase
+    .from("order_items")
+    .select("*")
+    .eq("order_id", orderId)
+    .eq("seller_id", sellerId)
+    .returns<OrderItemRow[]>();
+  if (itemsError) throw itemsError;
+  if (itemRows.length === 0) return null;
+
+  const { data: orderRow, error: orderError } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle()
+    .returns<OrderRow | null>();
+  if (orderError) throw orderError;
+  if (!orderRow) return null;
+
+  const myItems = itemRows.map((item) => ({
+    ...item,
+    price_snapshot: Number(item.price_snapshot),
+  }));
+  const myTotal = myItems.reduce((sum, item) => sum + item.price_snapshot * item.quantity, 0);
+
+  return {
+    ...orderRow,
+    status: orderRow.status as OrderStatus,
+    total: Number(orderRow.total),
+    myItems,
+    myTotal,
+  };
+}
+
 // orders_update_seller_advance_or_buyer_cancel permite al vendedor poner
 // CUALQUIER estado en un pedido con ítems suyos — el WITH CHECK de esa
 // política solo repite is_order_seller(orders.id), sin restringir el

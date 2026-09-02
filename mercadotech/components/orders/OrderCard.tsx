@@ -17,7 +17,7 @@ export function OrderCard({ order }: OrderCardProps) {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-medium">Pedido #{order.id.slice(0, 8)}</p>
         <p className="text-xs text-muted-foreground">
-          {new Date(order.created_at).toLocaleDateString("es-PE")}
+          {new Date(order.created_at).toLocaleDateString("es-CO")}
         </p>
       </div>
       <OrderStatusBadge status={order.status} />

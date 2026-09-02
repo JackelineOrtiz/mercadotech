@@ -6,9 +6,10 @@ import { PRODUCT_OUT_OF_STOCK } from "@/e2e/data/products";
 // [RAZONAMIENTO] paso → consecuencia observable → testid/URL:
 // - producto con stock 0 (buyer1 logueado, no es el dueño) → botón
 //   "Agregar al carrito" deshabilitado + motivo visible → testid
-//   buybox-add-to-cart[disabled] + buybox-disabled-reason = "Sin stock"
-//   (BuyBox.tsx: el orden real de motivos es !sesión > !activo > stock=0 >
-//   dueño — con sesión y producto activo, "Sin stock" es el único posible).
+//   buybox-add-to-cart[disabled] + buybox-disabled-reason = "Sin unidades
+//   disponibles" (BuyBox.tsx: el orden real de motivos es !sesión > !activo
+//   > stock=0 > dueño — con sesión y producto activo, ese es el único
+//   posible).
 // - /carrito vacío → SIN botón de checkout, EmptyState real (la UI real no
 //   muestra un botón deshabilitado: carrito/page.tsx retorna un EmptyState
 //   completo cuando items.length === 0 — se verifica el comportamiento
@@ -25,7 +26,7 @@ test("producto con stock 0: botón deshabilitado con motivo visible", async ({
   await product.goto(PRODUCT_OUT_OF_STOCK.id);
 
   await expect(product.addToCartButton()).toBeDisabled();
-  await expect(product.disabledReason()).toHaveText("Sin stock");
+  await expect(product.disabledReason()).toHaveText("Sin unidades disponibles");
 });
 
 test("carrito vacío: no hay forma de hacer checkout (EmptyState real)", async ({

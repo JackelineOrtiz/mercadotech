@@ -46,12 +46,16 @@ function useAuthState() {
     error: null,
   });
 
+  // Devuelve el profile recién cargado (además de guardarlo en el estado):
+  // lo necesita login() de acá abajo para poder redirigir según el rol
+  // apenas resuelve, sin esperar un segundo render a que el Context se
+  // actualice solo por el listener de onAuthStateChange.
   const loadProfile = useCallback(async () => {
     const session = await authService.getSession();
 
     if (!session) {
       setState((s) => ({ ...s, user: null, profile: null, initializing: false }));
-      return;
+      return null;
     }
 
     setState((s) => ({
@@ -60,6 +64,7 @@ function useAuthState() {
       profile: session.profile,
       initializing: false,
     }));
+    return session.profile;
   }, []);
 
   useEffect(() => {
@@ -83,13 +88,18 @@ function useAuthState() {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const data = await authService.login(email, password);
+      // profile del propio login, no del estado del Context (que recién
+      // se actualiza async vía el listener de onAuthStateChange, un
+      // render después) — LoginPage lo necesita YA para decidir a dónde
+      // redirigir según el rol.
+      const profile = await loadProfile();
       setState((s) => ({ ...s, loading: false }));
-      return data;
+      return { ...data, profile };
     } catch (err) {
       setState((s) => ({ ...s, loading: false, error: (err as Error).message }));
       throw err;
     }
-  }, []);
+  }, [loadProfile]);
 
   const logout = useCallback(async () => {
     await authService.logout();

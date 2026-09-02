@@ -34,7 +34,7 @@ export function BuyBox({
     : !product.is_active
       ? "Este producto ya no está disponible"
       : product.stock === 0
-        ? "Sin stock"
+        ? "Sin unidades disponibles"
         : isOwner
           ? "Es tu propio producto"
           : null;

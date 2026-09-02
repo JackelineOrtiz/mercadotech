@@ -87,7 +87,7 @@ export function ReviewsSection({
                       dueño o admin (Fase 2.3) — "Comprador verificado" es
                       cierto porque la RLS de reviews ya lo garantiza. */}
                   Comprador verificado ·{" "}
-                  {new Date(review.created_at).toLocaleDateString("es-PE")}
+                  {new Date(review.created_at).toLocaleDateString("es-CO")}
                 </span>
               </div>
               {review.comment ? <p className="text-sm">{review.comment}</p> : null}

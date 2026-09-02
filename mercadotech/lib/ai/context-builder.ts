@@ -42,6 +42,15 @@ export interface ContextSource {
   price?: number;
   image_url?: string | null;
   category?: string;
+  // Hallazgo real (Fase 7.5): las fuentes tipo "articulo_soporte" no
+  // tienen página propia todavía — SourcesList.tsx las enlazaba a
+  // "/soporte" a secas (placeholder, comentario original: "la página del
+  // artículo individual llega después de esta sesión"), lo que se sentía
+  // roto de verdad para un usuario probándolo ("parecen clickeables pero
+  // no es así"). Se manda el contenido REAL (ya truncado si aplica, mismo
+  // texto que recibió el modelo) para poder mostrarlo en un diálogo en
+  // vez de un link que no lleva a ningún lado específico.
+  content: string;
 }
 
 export interface ContextBuilderResult {
@@ -140,6 +149,7 @@ export function buildContext(
     price: extractNumber(candidate.metadata, "price"),
     image_url: extractImageUrl(candidate.metadata),
     category: extractString(candidate.metadata, "category"),
+    content: candidate.content,
   }));
 
   const userMessage = buildRagUserMessage(

@@ -97,8 +97,16 @@ export function ProductoPageClient() {
             onToggleFavorite={toggleFavorite}
             onAddToCart={async (quantity) => {
               try {
-                await addToCart(product.id, quantity);
-                toast.success("Agregado al carrito.");
+                const { added, capped } = await addToCart(product.id, quantity);
+                if (added === 0) {
+                  toast.info("Ya tienes en el carrito todo el stock disponible de este producto.");
+                } else if (capped) {
+                  toast.success(
+                    `Se agregó${added === 1 ? "" : "n"} ${added}. Llegaste al stock disponible.`,
+                  );
+                } else {
+                  toast.success("Agregado al carrito.");
+                }
               } catch (err) {
                 toast.error((err as Error).message);
               }

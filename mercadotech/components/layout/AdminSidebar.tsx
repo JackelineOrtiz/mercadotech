@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { NavLink } from "@/components/layout/NavLink";
 
 const LINKS = [
@@ -13,11 +12,6 @@ const LINKS = [
 export function AdminSidebar() {
   return (
     <nav className="flex flex-col gap-1 p-4" aria-label="Panel de administración">
-      {/* Mismo hallazgo real que SellerSidebar (Fase 7.5): sin esto, un
-          admin no tenía forma de volver a la tienda desde acá. */}
-      <Link href="/" className="mb-2 px-3 text-lg font-bold text-primary">
-        MercadoTech
-      </Link>
       {LINKS.map((link) => (
         <NavLink
           key={link.href}

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { validateNewPassword, type FieldErrors } from "@/lib/validators/auth";
 
@@ -42,10 +42,9 @@ export function NewPasswordForm({ onSubmit, loading = false, error }: NewPasswor
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-password">Nueva contraseña</Label>
-        <Input
+        <PasswordInput
           id="new-password"
           data-testid="new-password"
-          type="password"
           autoComplete="new-password"
           value={values.password}
           onChange={(e) => setValues((v) => ({ ...v, password: e.target.value }))}
@@ -58,10 +57,9 @@ export function NewPasswordForm({ onSubmit, loading = false, error }: NewPasswor
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-password-confirm">Confirmar contraseña</Label>
-        <Input
+        <PasswordInput
           id="new-password-confirm"
           data-testid="new-password-confirm"
-          type="password"
           autoComplete="new-password"
           value={values.confirmPassword}
           onChange={(e) => setValues((v) => ({ ...v, confirmPassword: e.target.value }))}

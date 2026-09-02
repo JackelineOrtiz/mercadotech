@@ -6,6 +6,7 @@ import {
   toggleActive,
   deleteProduct,
   listMyOrders,
+  getMyOrderDetail,
   updateOrderStatus,
   getSellerPublicProfile,
 } from "@/services/seller.service";
@@ -153,6 +154,78 @@ describe("seller.service.listMyOrders", () => {
     });
     await expect(listMyOrders("s1", supabase)).rejects.toMatchObject({
       message: "permission denied for table order_items",
+    });
+  });
+});
+
+// Fase 7.5: detalle de UN pedido para el vendedor (antes las tarjetas del
+// kanban no llevaban a ningún lado, ver components/seller/OrderKanbanCard).
+// "No es mi pedido" y "no existe" dan el mismo resultado (null) — mismo
+// criterio 404 que order.service.getOrderById para el comprador.
+describe("seller.service.getMyOrderDetail", () => {
+  it("sin ítems propios en ese pedido: devuelve null sin consultar orders", async () => {
+    const supabase = mockSupabase({ order_items: { select: [] } });
+    const order = await getMyOrderDetail("s1", "o1", supabase);
+    expect(order).toBeNull();
+    expect(supabase.calls.some((c) => c.table === "orders")).toBe(false);
+  });
+
+  it("con ítems propios: myItems/myTotal calculados, status/total del pedido mapeados", async () => {
+    const supabase = mockSupabase({
+      order_items: {
+        select: [
+          { id: "i1", order_id: "o1", seller_id: "s1", product_id: "p1", quantity: 2, price_snapshot: "10.00" },
+        ],
+      },
+      orders: {
+        maybeSingle: { id: "o1", buyer_id: "u1", status: "pagado", total: "50.00", created_at: "2026-01-01" },
+      },
+    });
+
+    const order = await getMyOrderDetail("s1", "o1", supabase);
+
+    expect(order).not.toBeNull();
+    expect(order!.myItems).toHaveLength(1);
+    expect(order!.myTotal).toBe(20);
+    expect(order!.status).toBe("pagado");
+    // total del pedido completo, no solo la parte del vendedor.
+    expect(order!.total).toBe(50);
+  });
+
+  it("ítems propios pero el pedido ya no existe: devuelve null", async () => {
+    const supabase = mockSupabase({
+      order_items: {
+        select: [
+          { id: "i1", order_id: "o1", seller_id: "s1", product_id: "p1", quantity: 1, price_snapshot: "10.00" },
+        ],
+      },
+      orders: { maybeSingle: null },
+    });
+
+    const order = await getMyOrderDetail("s1", "o1", supabase);
+    expect(order).toBeNull();
+  });
+
+  it("propaga el error de order_items tal cual", async () => {
+    const supabase = mockSupabase({
+      order_items: { error: { message: "permission denied for table order_items" } },
+    });
+    await expect(getMyOrderDetail("s1", "o1", supabase)).rejects.toMatchObject({
+      message: "permission denied for table order_items",
+    });
+  });
+
+  it("propaga el error de orders tal cual", async () => {
+    const supabase = mockSupabase({
+      order_items: {
+        select: [
+          { id: "i1", order_id: "o1", seller_id: "s1", product_id: "p1", quantity: 1, price_snapshot: "10.00" },
+        ],
+      },
+      orders: { error: { message: "permission denied for table orders" } },
+    });
+    await expect(getMyOrderDetail("s1", "o1", supabase)).rejects.toMatchObject({
+      message: "permission denied for table orders",
     });
   });
 });

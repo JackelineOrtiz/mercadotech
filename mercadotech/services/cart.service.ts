@@ -71,12 +71,22 @@ export async function getItems(
 // reemplaza), limitada al stock actual. El checkout vuelve a validar el
 // stock de todos modos (con FOR UPDATE) — este límite es solo para no
 // mostrarle al comprador una cantidad que ya sabemos que es inválida.
+//
+// Devuelve cuánto se agregó de verdad (`added`) y si el pedido se recortó
+// (`capped`) — hallazgo real de un usuario probando la app (Fase 7.5): con
+// stock=1 y ese ítem ya en el carrito, cada clic en "Agregar al carrito"
+// hacía este mismo UPDATE (a un valor idéntico, un no-op silencioso) y el
+// caller (ProductoPageClient) mostraba igual "Agregado al carrito." — el
+// toast mentía. `added` deja que el caller arme un mensaje real en vez de
+// asumir éxito. Nunca "rechaza" la operación en sí (decisión 5 de la
+// spec sigue vigente: el service siempre completa el UPDATE/INSERT,
+// aunque `added` termine en 0) — solo reporta con precisión qué pasó.
 export async function addItem(
   userId: string,
   productId: string,
   quantity: number,
   supabase: Client = createClient(),
-): Promise<void> {
+): Promise<{ added: number; capped: boolean }> {
   const { data: product, error: productError } = await supabase
     .from("products")
     .select("stock")
@@ -93,21 +103,24 @@ export async function addItem(
   if (existingError) throw existingError;
 
   if (existing) {
-    const nextQuantity = Math.min(existing.quantity + quantity, product.stock);
+    const requested = existing.quantity + quantity;
+    const nextQuantity = Math.min(requested, product.stock);
     const { error } = await supabase
       .from("cart_items")
       .update({ quantity: nextQuantity })
       .eq("id", existing.id);
     if (error) throw error;
-    return;
+    return { added: nextQuantity - existing.quantity, capped: nextQuantity < requested };
   }
 
+  const nextQuantity = Math.min(quantity, product.stock);
   const { error } = await supabase.from("cart_items").insert({
     user_id: userId,
     product_id: productId,
-    quantity: Math.min(quantity, product.stock),
+    quantity: nextQuantity,
   });
   if (error) throw error;
+  return { added: nextQuantity, capped: nextQuantity < quantity };
 }
 
 // Clampea al stock actual, mismo criterio que addItem (Fase 5.6: hallazgo

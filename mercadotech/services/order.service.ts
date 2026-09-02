@@ -67,18 +67,16 @@ export async function getOrderById(
   return { ...mapOrder(orderRow), items: itemRows.map(mapOrderItem) };
 }
 
-// Solo el comprador, y solo si el pedido sigue 'pendiente'
-// (orders_update_seller_advance_or_buyer_cancel). El filtro status='pendiente'
-// es defensa en profundidad — si ya cambió, RLS lo rechaza de todos modos.
-// No se restaura stock (fuera de alcance, decisión 11 de la spec).
+// Vía la RPC cancel_order_and_restock (Fase 7.5) — ya no un UPDATE directo.
+// Antes (decisión 11 de la spec, revertida): no reponía stock; hallazgo
+// real de un usuario probando la app. La función valida buyer_id y
+// status='pendiente' server-side (mismo criterio que antes vivía acá como
+// .eq("status", "pendiente")), así que esas dos comprobaciones ya no hacen
+// falta de este lado.
 export async function cancelIfPending(
   id: string,
   supabase: Client = createClient(),
 ): Promise<void> {
-  const { error } = await supabase
-    .from("orders")
-    .update({ status: "cancelado" })
-    .eq("id", id)
-    .eq("status", "pendiente");
+  const { error } = await supabase.rpc("cancel_order_and_restock", { p_order_id: id });
   if (error) throw error;
 }

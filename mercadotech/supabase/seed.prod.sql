@@ -52,9 +52,9 @@ En temporadas de alta demanda, como campañas o fechas festivas, estos plazos pu
 Si tu pedido lleva más tiempo del estimado sin cambiar de estado, puedes abrir un ticket de soporte indicando el número de pedido para que lo revisemos.',
    'envíos', true),
   ('50000000-0000-0000-0000-000000000002', '¿Cuánto cuesta el envío?',
-   'El costo de envío se calcula automáticamente en el checkout según tu distrito o ciudad de entrega y el peso/volumen de los productos comprados. En Lima Metropolitana, los envíos suelen costar entre S/ 10 y S/ 25 según la zona.
+   'El costo de envío se calcula automáticamente al finalizar la compra, según tu distrito o ciudad de entrega y el peso/volumen de los productos comprados. En Lima Metropolitana, los envíos suelen costar entre $ 15.000 y $ 35.000 según la zona.
 
-Para compras superiores a S/ 300 en un mismo pedido, el envío es gratuito dentro de Lima Metropolitana. En provincias, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
+Para compras superiores a $ 300.000 en un mismo pedido, el envío es gratuito dentro de Lima Metropolitana. En provincias, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
 
 Si compras productos de más de un vendedor en el mismo carrito, el sistema puede generar más de un pedido si los tiempos o costos de envío difieren entre vendedores.',
    'envíos', true),
@@ -68,7 +68,7 @@ Si tienes dudas sobre el avance de tu pedido y no ves actualizaciones por varios
   ('50000000-0000-0000-0000-000000000004', '¿Qué métodos de pago aceptan?',
    'MercadoTech acepta tarjetas de crédito y débito (Visa, Mastercard) procesadas de forma segura, así como pago contra entrega en distritos seleccionados de Lima Metropolitana, sujeto a confirmación del vendedor.
 
-También ofrecemos la opción de pago en cuotas con tarjetas de crédito participantes, mostrada directamente en el checkout cuando el banco emisor lo permite. El monto de las cuotas y los intereses aplicables los define tu entidad bancaria, no MercadoTech.
+También ofrecemos la opción de pago en cuotas con tarjetas de crédito participantes, mostrada directamente al finalizar la compra, cuando el banco emisor lo permite. El monto de las cuotas y los intereses aplicables los define tu entidad bancaria, no MercadoTech.
 
 Todos los pagos con tarjeta se procesan mediante una pasarela cifrada; en ningún caso el número completo de tu tarjeta queda almacenado en nuestros servidores.',
    'pagos', true),
@@ -80,7 +80,7 @@ Si notas un cargo que no reconoces, repórtalo de inmediato tanto a tu banco com
 Como medida adicional, algunas compras de montos altos pueden requerir una verificación extra por parte de tu banco antes de confirmarse.',
    'pagos', true),
   ('50000000-0000-0000-0000-000000000006', '¿Puedo pagar contra entrega?',
-   'El pago contra entrega está disponible solo para algunos distritos de Lima Metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción en el checkout únicamente si aplica a tu dirección y a los productos del carrito.
+   'El pago contra entrega está disponible solo para algunos distritos de Lima Metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción al finalizar la compra, únicamente si aplica a tu dirección y a los productos del carrito.
 
 Al recibir el pedido, el repartidor cobra el monto exacto indicado en el pedido; te recomendamos tener el monto aproximado a la mano para agilizar la entrega.
 

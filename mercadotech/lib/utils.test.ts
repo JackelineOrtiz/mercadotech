@@ -7,23 +7,27 @@ import { cn, formatPrice } from "@/lib/utils";
 
 describe("formatPrice", () => {
   it("formatea 0", () => {
-    // Intl.NumberFormat("es-PE", {style:"currency", currency:"PEN"}) separa
-    // "S/" del monto con un ESPACIO DE NO RUPTURA (U+00A0), no un espacio
+    // Intl.NumberFormat("es-CO", {style:"currency", currency:"COP"}) separa
+    // "$" del monto con un ESPACIO DE NO RUPTURA (U+00A0), no un espacio
     // normal (U+0020) — verificado real con Intl antes de escribir esta
-    // aserción; escribirlo con espacio normal haría fallar el test.
-    expect(formatPrice(0)).toBe("S/ 0.00");
+    // aserción (generado con Node, no tipeado a mano, para no repetir el
+    // error de la primera vez); escribirlo con espacio normal haría fallar
+    // el test. Moneda colombiana real (Fase 7.5, pedido explícito): "."
+    // separa miles, "," separa decimales — al revés que el es-PE/PEN
+    // anterior.
+    expect(formatPrice(0)).toBe("$ 0,00");
   });
 
   it("redondea a 2 decimales", () => {
-    expect(formatPrice(1234.567)).toBe("S/ 1,234.57");
+    expect(formatPrice(1234.567)).toBe("$ 1.234,57");
   });
 
   it("separador de miles", () => {
-    expect(formatPrice(1000000)).toBe("S/ 1,000,000.00");
+    expect(formatPrice(1000000)).toBe("$ 1.000.000,00");
   });
 
   it("entrada string (como llega numeric(12,2) desde PostgREST)", () => {
-    expect(formatPrice("219.00")).toBe("S/ 219.00");
+    expect(formatPrice("219.00")).toBe("$ 219,00");
   });
 
   it("entrada number da el mismo resultado que el string equivalente", () => {

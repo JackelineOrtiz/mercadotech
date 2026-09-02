@@ -5,7 +5,25 @@ export class LoginPage {
   constructor(private page: Page) {}
 
   async goto(redirectTo?: string) {
-    await this.page.goto(redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login");
+    const url = redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login";
+
+    // Hallazgo real, solo en WebKit: cuando este goto sigue a un logout
+    // (seller-flow paso 5), el handler de app/(shop)/layout.tsx todavía
+    // tiene un router.push("/") + router.refresh() en vuelo — logout()
+    // espera a que el Navbar muestre "Ingresar", que ocurre en cuanto
+    // useAuth recarga el perfil vacío, ANTES de que esa redirección
+    // termine. WebKit aborta el goto con "interrupted by another
+    // navigation to .../"; Chromium y Firefox absorben la carrera. Un
+    // segundo intento, ya con el push del logout consumido, entra limpio.
+    try {
+      await this.page.goto(url);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("interrupted by another navigation")) {
+        await this.page.goto(url);
+        return;
+      }
+      throw err;
+    }
   }
 
   async login(user: TestUser) {
@@ -30,7 +48,15 @@ export class LoginPage {
     }
 
     await this.page.getByTestId("login-submit").click();
-    await this.page.getByTestId("user-menu").waitFor();
+    // Hallazgo real (Fase 7.5): esperar "user-menu" acá rompió en cuanto
+    // el login empezó a redirigir por rol — un vendedor ahora aterriza en
+    // /vendedor/productos, que usa SellerSidebar en vez del Navbar de
+    // (shop)/, así que "user-menu" nunca aparece ahí y este wait colgaba
+    // hasta el timeout. Esperar a que la URL deje /login es agnóstico del
+    // destino real (buyer a "/", seller a /vendedor/productos, admin a
+    // /admin) — refleja la condición real de éxito (se redirigió), no un
+    // detalle de qué layout renderiza después.
+    await this.page.waitForURL((url) => !url.pathname.startsWith("/login"));
   }
 
   // Disponible en cualquier pantalla de (shop) — el Navbar (con user-menu)

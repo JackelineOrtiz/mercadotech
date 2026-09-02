@@ -72,7 +72,7 @@ export function ProductsTable({ products, onToggleActive, onDelete }: ProductsTa
         <TableRow>
           <TableHead>Producto</TableHead>
           <TableHead>Precio</TableHead>
-          <TableHead>Stock</TableHead>
+          <TableHead>Existencias</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
         </TableRow>

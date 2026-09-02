@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { validateChangePassword, type FieldErrors } from "@/lib/validators/auth";
 
@@ -53,10 +53,9 @@ export function ChangePasswordForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="change-password-current">Contraseña actual</Label>
-        <Input
+        <PasswordInput
           id="change-password-current"
           data-testid="change-password-current"
-          type="password"
           autoComplete="current-password"
           value={values.currentPassword}
           onChange={(e) => setValues((v) => ({ ...v, currentPassword: e.target.value }))}
@@ -69,10 +68,9 @@ export function ChangePasswordForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="change-password-new">Nueva contraseña</Label>
-        <Input
+        <PasswordInput
           id="change-password-new"
           data-testid="change-password-new"
-          type="password"
           autoComplete="new-password"
           value={values.password}
           onChange={(e) => setValues((v) => ({ ...v, password: e.target.value }))}
@@ -85,10 +83,9 @@ export function ChangePasswordForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="change-password-confirm">Confirmar nueva contraseña</Label>
-        <Input
+        <PasswordInput
           id="change-password-confirm"
           data-testid="change-password-confirm"
-          type="password"
           autoComplete="new-password"
           value={values.confirmPassword}
           onChange={(e) => setValues((v) => ({ ...v, confirmPassword: e.target.value }))}

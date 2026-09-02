@@ -471,6 +471,134 @@ persistió en la base).
 
 Detalle completo de los 3 hallazgos → `docs/DEPLOY.md`.
 
+### Segunda ronda de hallazgos reales, usando la app de verdad (2026-09-01)
+
+Con el producto demo ya publicado, el usuario siguió usando la app real y encontró varios problemas
+más — todos verificados y corregidos, no solo reportados:
+
+- **Login redirige distinto según el rol**: antes, cualquier rol aterrizaba en "/" tras loguearse.
+  Pedido explícito: comprador → catálogo (sin cambios), vendedor → `/vendedor/productos`, admin →
+  `/admin`. `useAuth().login()` ahora devuelve el `profile` recién cargado (antes solo llegaba async
+  por el listener de `onAuthStateChange`, un render después) para poder decidir el destino en el
+  mismo submit. Si hay `redirectTo` explícito en la URL, sigue ganando sobre el home del rol.
+  Regresión real que causó: `e2e/pages/LoginPage.ts` esperaba el `user-menu` del Navbar tras
+  loguear — un vendedor ya no pasa por ahí. Fix: esperar a que la URL deje `/login` en vez de un
+  elemento específico de un layout, agnóstico del destino real.
+- **Moneda: pesos colombianos reales, no soles peruanos** — pedido explícito. `lib/utils.ts`
+  cambia de `es-PE`/PEN a `es-CO`/COP, forzando 2 decimales (COP por default en `Intl` no muestra
+  decimales — se pierde precisión real contra `numeric(12,2)`). Confirmado con contradicción real
+  antes de aplicar: Colombia de verdad usa "," para decimales (no "." como pidió el usuario al
+  principio) — se le mostró la contradicción con `Intl.NumberFormat` real y eligió formato
+  colombiano genuino. Arreglados también: un "S/" hardcodeado en las sugerencias de
+  `/asistente`, labels "Precio (S/)" en `ProductForm`/`FiltersPanel`, descripciones del servidor
+  MCP (`search-products.ts`) que decían "soles".
+- **"Checkout" (anglicismo) en 3 artículos reales de la FAQ** — el botón real ya decía "Finalizar
+  compra" en español; solo el CONTENIDO de la FAQ (`seed.sql`/`seed.prod.sql`) tenía "en el
+  checkout" tres veces. Reemplazado por "al finalizar la compra" en ambos archivos, más los montos
+  de envío en soles ("S/ 10 y S/ 25") a pesos colombianos.
+- **Paneles de vendedor/admin sin Navbar real**: el fix anterior (logo suelto en el sidebar) no
+  alcanzaba — el usuario pidió mantener el Navbar COMPLETO (buscador, categorías, carrito, menú de
+  usuario) igual en todos lados, no un logo aislado. `(seller)/layout.tsx` y `(admin)/layout.tsx`
+  ahora envuelven con su propio `CartProvider` y renderizan el mismo `Navbar` que `(shop)/layout.tsx`
+  arriba del sidebar propio del panel — un vendedor/admin ahora puede buscar, ver categorías, su
+  carrito y llegar a "Mi perfil"/cerrar sesión desde cualquier pantalla, sin salir del panel primero.
+  Aclarado con el usuario: que el buscador/categorías te saquen del panel hacia el catálogo es
+  comportamiento esperado (mismo patrón que un Seller Central real), no un bug.
+- **Ojito de contraseña, mantener presionado para ver** — pedido literal del usuario, no un toggle
+  que queda abierto con un click. `components/ui/password-input.tsx` nuevo:
+  `onMouseDown`/`onTouchStart` muestra, `onMouseUp`/`onMouseLeave`/`onTouchEnd` oculta. Aplicado en
+  los 4 formularios de contraseña del proyecto (`LoginForm`, `RegisterForm`, `ChangePasswordForm`,
+  `NewPasswordForm`). Verificado con eventos reales de mouse (no solo visual): `type="text"`
+  mientras está presionado, vuelve a `type="password"` al soltar.
+- **Cómo probar varios roles sin varios correos reales**: se le explicó al usuario el alias "+" de
+  Gmail (`correo+seller@gmail.com` llega al mismo buzón, Supabase lo trata como cuenta distinta) —
+  no es un cambio de código, es una forma real de operar con el sistema de Auth existente.
+- **"Fuentes" del asistente parecían clickeables pero no llevaban a nada específico**: para fuentes
+  tipo `articulo_soporte`, el link siempre apuntaba a `/soporte` a secas — placeholder documentado
+  desde la Fase 4.7 ("la página del artículo individual llega después de esta sesión", nunca
+  construida). `ContextSource`/`ChatSource` ahora incluyen `content` (el texto real que ya recibía
+  el modelo, antes se descartaba antes de llegar al cliente) — `SourcesList.tsx` abre un `Dialog`
+  con el texto real de la fuente en vez de navegar a un destino genérico. Las fuentes "producto" no
+  cambiaron (ya eran links reales a `/producto/[id]`, con imagen y precio).
+
+**Deuda técnica anotada, no resuelta en este bloque**: gran parte del contenido de ejemplo (nombres
+de vendedores "TecnoStore Perú"/"Gamer Zone Perú", la FAQ menciona "Lima Metropolitana" para
+envíos) sigue ambientada en Perú — cambiarlo es una reescritura de contenido más grande, fuera del
+alcance de este bloque de fixes puntuales.
+
+Verificación de todo el bloque: `npm run lint`/`type-check`/`build` exit 0, `npm run test` 220/220,
+`npm run test:e2e` 24/24 (`supabase db reset` fresco), verificado en vivo en el navegador local
+(login real de vendedor aterrizando en su panel, Navbar completo visible, menú de usuario
+funcionando, ojito de contraseña con eventos reales de mouse).
+
+### Tercera ronda de hallazgos reales (2026-09-01) — carrito, kanban del vendedor, cancelación, tickets
+
+Mismo patrón que la ronda anterior: el usuario siguió usando la app real (esta vez también en
+local) y cada reporte se investigó hasta la causa real antes de tocar código.
+
+- **El carrito mentía al agregar un producto sin stock disponible**: con stock=1 ya en el carrito,
+  cada clic en "Agregar al carrito" hacía el mismo `UPDATE` (a un valor idéntico, un no-op) y el
+  toast decía igual "Agregado al carrito." `cart.service.addItem` ahora devuelve `{ added, capped }`
+  — cuántas unidades se agregaron de verdad — y `ProductoPageClient` arma el mensaje según ese
+  resultado real (`toast.info` si `added === 0`, aviso de tope si `capped`, éxito normal si no).
+  Sigue sin "rechazar" la operación (decisión 5 de la spec sigue vigente: el `UPDATE`/`INSERT`
+  siempre se ejecuta), solo reporta con precisión qué pasó.
+- **"Stock" en inglés en toda la app**: barrido completo de anglicismos pedido por el usuario.
+  "Stock" (label del form de producto, columna de la tabla del vendedor) → "Existencias"; "Sin
+  stock"/"N disponibles" (`BuyBox`, `ProductInfo`, `ProductCard`) → "Sin unidades disponibles"/"N
+  unidad(es) disponible(s)" (de paso, corrige un error de concordancia real: "1 disponibles").
+- **Sin forma de quitar el filtro de categoría**: entrar a `/categoria/[slug]` solo se podía
+  abandonar por el logo — ni el menú "Categorías" del Navbar ni la página ofrecían un "ver todo".
+  `CategoriesMenu` suma "Todas las categorías" arriba de la lista (va a `/`); la página de
+  categoría suma `Breadcrumbs` (mismo patrón que `/producto/[id]`, `/pedidos/[id]`).
+- **Locale de fecha `es-PE` suelto en 5 archivos**: mismo hallazgo que la moneda (ronda anterior)
+  pero para `toLocaleDateString`, no capturado en esa pasada. Alineado a `es-CO` en
+  `OrderKanbanCard`, `OrderCard`, `ReviewsSection`, `UsersTable` y `/soporte`.
+- **Las tarjetas del kanban del vendedor nunca llevaban a ningún lado**: descubierto con un pedido
+  cancelado ("no me deja ver el detalle"), pero el problema era general — `OrderKanbanCard` nunca
+  tuvo `Link` ni `onClick`, en NINGUNA columna, y no existía `/vendedor/pedidos/[id]`. Construido:
+  `seller.service.getMyOrderDetail` (dos queries, mismo criterio que `listMyOrders` — RLS ya filtra
+  `order_items` a "mis ítems" en un pedido multi-vendedor), `useSellerOrders.useSellerOrder`, y la
+  página nueva (solo lectura, reusa `OrderItemsTable`/`OrderStatusBadge`). En la tarjeta, un link
+  "Ver detalle" con `onPointerDown` + `stopPropagation` para que dnd-kit nunca lo capture como
+  inicio de un drag.
+- **Cancelar un pedido no reponía stock** — decisión 11 de la spec, deuda aceptada desde la Sesión
+  2/3, vivida en carne propia por el usuario ("cancelé un pedido... no volvió a estar en el
+  stock"). Preguntado explícitamente si tocar una decisión de spec ya aceptada valía el riesgo —
+  el usuario pidió implementarlo. Nueva función `cancel_order_and_restock` (migración
+  `20260901180000_cancel_order_restocks.sql`), mismo patrón que `create_order_from_cart`:
+  `SECURITY DEFINER`, valida `buyer_id = auth.uid()` y `status = 'pendiente'` dentro de la función
+  (bloqueando la fila de `orders` con `for update`), repone stock de cada `order_item` antes de
+  marcar `cancelado`. `order.service.cancelIfPending` pasó de un `UPDATE` directo a esta RPC. El
+  texto del diálogo de cancelación ("El stock no se repone automáticamente") se eliminó por dejar
+  de ser cierto.
+- **Creación de tickets desde la UI** — el asistente de `/soporte` sugiere "abrir un ticket" pero
+  no existía ningún botón para hacerlo; `ticket.service.ts` documentaba esto como diferido
+  explícitamente a la Sesión 8 (agente de voz, decisión 5 de la spec). Preguntado al usuario si
+  seguía valiendo esperar — pidió construirlo ahora. `ticket.service.createTicket` (dos inserts
+  secuenciales: `support_tickets` con `channel: "chat"` fijo, después `ticket_messages` con
+  `sender_role: "usuario"` — RLS ya permitía ambos, sin migración nueva), `useMyTickets.create`
+  (sin optimismo local: a diferencia de `useAdminUsers.changeRole`, un ticket nuevo necesita su id
+  real de Postgres antes de poder mostrarse, así que refresca la lista completa después de crear),
+  y en `/soporte` un botón "Nuevo ticket" que abre un `Dialog` con asunto + mensaje.
+- **El asistente de soporte daba una respuesta confusa y repetida ante preguntas de producto**: en
+  `/soporte`, preguntar por un producto específico (ej. "cuál es la descripción de la Insta 360")
+  cae fuera del contexto de ese modo a propósito (`chat.service.ts`: `mode==="soporte"` solo trae
+  `articulo_soporte`, nunca `producto` — separación intencional del pipeline RAG, confirmada
+  releyendo el código, no un bug de recuperación). El problema real era la respuesta: no redirigía
+  a ningún lado y repetía la misma frase de cortesía dos veces. `SUPPORT_SYSTEM_INSTRUCTIONS` ahora
+  instruye explícitamente derivar al asesor de compras (`/asistente`) ante preguntas de producto, y
+  prohíbe repetir la misma frase de cortesía.
+
+Verificación de todo el bloque: `npm run lint`/`type-check`/`build` exit 0, `npm run test`
+229/229 (+8 tests nuevos: `cart.service.addItem`, `seller.service.getMyOrderDetail`,
+`ticket.service.createTicket`, `order.service.cancelIfPending` reescrito para la RPC),
+`npm run test:e2e` 24/24 en los 3 navegadores (`supabase db reset` fresco — una corrida intermedia
+con 3 fallos en `buyer-flow.spec.ts` resultó ser contaminación de estado de una corrida manual
+previa sin reset, no una regresión real: confirmado repitiendo con reset limpio, verde). Un test
+e2e sí necesitó actualizarse por el cambio de copy: `buyer-negative.spec.ts` esperaba literalmente
+"Sin stock".
+
 ## Sesión 6 — Testing y CI con GitHub Actions (2026-08-29 a 2026-08-31)
 
 Red de seguridad completa: Vitest para lógica pura y `services/` (184

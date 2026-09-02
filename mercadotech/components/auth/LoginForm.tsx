@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { validateLogin, type FieldErrors } from "@/lib/validators/auth";
 
@@ -65,10 +66,9 @@ export function LoginForm({ onSubmit, loading = false, error }: LoginFormProps) 
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="login-password"
           data-testid="login-password"
-          type="password"
           autoComplete="current-password"
           value={values.password}
           onChange={(e) => setValues((v) => ({ ...v, password: e.target.value }))}

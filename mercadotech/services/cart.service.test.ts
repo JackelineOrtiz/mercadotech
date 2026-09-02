@@ -56,25 +56,39 @@ describe("cart.service.addItem", () => {
       cart_items: { maybeSingle: null },
     });
 
-    await addItem("u1", "p1", 3, supabase);
+    const result = await addItem("u1", "p1", 3, supabase);
 
     expect(supabase.inserts("cart_items")).toContainEqual({
       user_id: "u1",
       product_id: "p1",
       quantity: 3,
     });
+    expect(result).toEqual({ added: 3, capped: false });
   });
 
-  it("duplicado: SUMA la cantidad existente y recorta al stock", async () => {
+  it("duplicado: SUMA la cantidad existente y recorta al stock, reportando cuánto se agregó de verdad", async () => {
     const supabase = mockSupabase({
       cart_items: { maybeSingle: { id: "c1", quantity: 3 } },
       products: { single: { stock: 4 } },
     });
 
-    await addItem("u1", "p1", 5, supabase);
+    const result = await addItem("u1", "p1", 5, supabase);
 
-    // 3 + 5 = 8, tope = stock (4)
+    // 3 + 5 = 8, tope = stock (4) → solo se agregó 1 de verdad
     expect(supabase.updates("cart_items")).toContainEqual({ quantity: 4 });
+    expect(result).toEqual({ added: 1, capped: true });
+  });
+
+  it("duplicado ya en el tope del stock: added=0, no rechaza (decisión 5) pero lo reporta", async () => {
+    const supabase = mockSupabase({
+      cart_items: { maybeSingle: { id: "c1", quantity: 4 } },
+      products: { single: { stock: 4 } },
+    });
+
+    const result = await addItem("u1", "p1", 1, supabase);
+
+    expect(supabase.updates("cart_items")).toContainEqual({ quantity: 4 });
+    expect(result).toEqual({ added: 0, capped: true });
   });
 
   it("producto nuevo con cantidad pedida por encima del stock: recorta al insertar", async () => {
@@ -83,13 +97,14 @@ describe("cart.service.addItem", () => {
       cart_items: { maybeSingle: null },
     });
 
-    await addItem("u1", "p1", 10, supabase);
+    const result = await addItem("u1", "p1", 10, supabase);
 
     expect(supabase.inserts("cart_items")).toContainEqual({
       user_id: "u1",
       product_id: "p1",
       quantity: 2,
     });
+    expect(result).toEqual({ added: 2, capped: true });
   });
 
   it("propaga el error de leer el stock del producto tal cual", async () => {
