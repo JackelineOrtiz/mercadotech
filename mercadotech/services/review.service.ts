@@ -102,3 +102,21 @@ export async function create(
   if (error) throw error;
   return data;
 }
+
+// Permitido por reviews_update_seller_reply (RLS) + protect_review_columns_trigger
+// (Fase 7.5) — el trigger es quien de verdad restringe que este UPDATE
+// solo pueda tocar seller_reply/seller_reply_at, nunca rating/comment.
+export async function reply(
+  reviewId: string,
+  replyText: string,
+  supabase: Client = createClient(),
+): Promise<Review> {
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ seller_reply: replyText, seller_reply_at: new Date().toISOString() })
+    .eq("id", reviewId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}

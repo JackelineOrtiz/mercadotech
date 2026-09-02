@@ -413,6 +413,27 @@ create policy "reviews_update_own" on public.reviews
   using ((select auth.uid()) = buyer_id)
   with check ((select auth.uid()) = buyer_id);
 
+-- Respuesta del vendedor (Fase 7.5). Esta política solo habilita que la
+-- fila sea alcanzable para el vendedor dueño del producto — QUÉ columnas
+-- puede tocar (solo seller_reply/seller_reply_at, nunca rating/comment)
+-- lo restringe el trigger protect_review_columns_trigger, mismo patrón
+-- que protect_profiles_role (Fase 2.3): RLS opera sobre filas, no
+-- columnas, así que un GRANT o policy solos no alcanzan acá.
+create policy "reviews_update_seller_reply" on public.reviews
+  for update
+  using (
+    exists (
+      select 1 from public.products p
+      where p.id = reviews.product_id and p.seller_id = (select auth.uid())
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.products p
+      where p.id = reviews.product_id and p.seller_id = (select auth.uid())
+    )
+  );
+
 create policy "reviews_delete_own_or_admin" on public.reviews
   for delete
   using ((select auth.uid()) = buyer_id or public.is_admin());

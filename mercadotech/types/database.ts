@@ -513,6 +513,8 @@ export type Database = {
           order_id: string
           product_id: string
           rating: number
+          seller_reply: string | null
+          seller_reply_at: string | null
         }
         Insert: {
           buyer_id: string
@@ -522,6 +524,8 @@ export type Database = {
           order_id: string
           product_id: string
           rating: number
+          seller_reply?: string | null
+          seller_reply_at?: string | null
         }
         Update: {
           buyer_id?: string
@@ -531,6 +535,8 @@ export type Database = {
           order_id?: string
           product_id?: string
           rating?: number
+          seller_reply?: string | null
+          seller_reply_at?: string | null
         }
         Relationships: [
           {

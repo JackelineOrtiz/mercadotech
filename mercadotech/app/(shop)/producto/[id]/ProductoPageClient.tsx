@@ -50,6 +50,7 @@ export function ProductoPageClient() {
     canReview,
     loading: reviewsLoading,
     submit: submitReview,
+    reply: replyReview,
   } = useReviews(productId, user?.id);
   const { isFavorite, toggle: toggleFavorite } = useFavorite(productId, user?.id);
   // useCart() lee el CartProvider montado en (shop)/layout.tsx (Fase 6.5) —
@@ -135,6 +136,8 @@ export function ProductoPageClient() {
         onSubmit={({ rating, comment }) =>
           submitReview({ buyerId: user!.id, rating, comment })
         }
+        isOwner={isOwner}
+        onReply={replyReview}
       />
     </div>
   );
