@@ -84,7 +84,7 @@ export function UsersTable({ users, currentUserId, onChangeRole }: UsersTablePro
               )}
             </TableCell>
             <TableCell className="text-right text-muted-foreground">
-              {new Date(user.created_at).toLocaleDateString("es-PE")}
+              {new Date(user.created_at).toLocaleDateString("es-CO")}
             </TableCell>
           </TableRow>
         ))}

@@ -58,7 +58,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         <div className="mt-auto flex items-center justify-between pt-1">
           <Price value={product.price} size="md" />
           {product.stock === 0 ? (
-            <span className="text-xs font-medium text-destructive">Sin stock</span>
+            <span className="text-xs font-medium text-destructive">Sin unidades</span>
           ) : null}
         </div>
       </div>

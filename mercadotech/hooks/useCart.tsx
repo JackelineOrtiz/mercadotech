@@ -50,9 +50,10 @@ function useCartState(userId?: string) {
 
   const add = useCallback(
     async (productId: string, quantity: number) => {
-      if (!userId) return;
-      await cartService.addItem(userId, productId, quantity);
+      if (!userId) return { added: 0, capped: false };
+      const result = await cartService.addItem(userId, productId, quantity);
       await fetchItems();
+      return result;
     },
     [userId, fetchItems],
   );

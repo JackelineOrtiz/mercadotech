@@ -23,7 +23,11 @@ export function ProductInfo({ product, sellerName }: ProductInfoProps) {
       <h1 className="text-2xl font-bold">{product.title}</h1>
       <Price value={product.price} size="lg" testId="product-price" />
       <p className="text-sm text-muted-foreground">
-        {product.stock > 0 ? `${product.stock} disponibles` : "Sin stock"}
+        {product.stock > 0
+          ? product.stock === 1
+            ? "1 unidad disponible"
+            : `${product.stock} unidades disponibles`
+          : "Sin unidades disponibles"}
       </p>
       {product.description ? (
         <p className="mt-2 text-sm text-foreground/90">{product.description}</p>

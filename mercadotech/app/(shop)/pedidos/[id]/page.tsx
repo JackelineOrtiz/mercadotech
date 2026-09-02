@@ -79,9 +79,7 @@ export default function PedidoDetallePage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>¿Cancelar este pedido?</DialogTitle>
-              <DialogDescription>
-                El stock no se repone automáticamente. Esta acción no se puede deshacer.
-              </DialogDescription>
+              <DialogDescription>Esta acción no se puede deshacer.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>

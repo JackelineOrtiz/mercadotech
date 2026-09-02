@@ -689,6 +689,10 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_order_and_restock: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       create_order_from_cart: { Args: { p_buyer_id: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order_id: string }; Returns: boolean }

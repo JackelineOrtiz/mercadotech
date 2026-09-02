@@ -26,8 +26,8 @@ export function registerSearchProducts(server: McpServer): void {
           .array(z.enum(["nuevo", "usado", "reacondicionado"]))
           .optional()
           .describe("Condiciones físicas aceptadas."),
-        minPrice: z.number().optional().describe("Precio mínimo en soles (S/)."),
-        maxPrice: z.number().optional().describe("Precio máximo en soles (S/)."),
+        minPrice: z.number().optional().describe("Precio mínimo en pesos colombianos ($)."),
+        maxPrice: z.number().optional().describe("Precio máximo en pesos colombianos ($)."),
         sort: z
           .enum(["recientes", "precio_asc", "precio_desc"])
           .optional()

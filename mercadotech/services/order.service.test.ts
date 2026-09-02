@@ -99,25 +99,39 @@ describe("order.service.getOrderById", () => {
   });
 });
 
+// Vía la RPC cancel_order_and_restock (Fase 7.5) — antes un UPDATE directo
+// que nunca reponía stock (decisión 11 de la spec, revertida: hallazgo real
+// de un usuario probando la app). buyer_id/status='pendiente' ahora se
+// validan DENTRO de la función, no de este lado.
 describe("order.service.cancelIfPending", () => {
-  it("actualiza a 'cancelado' filtrando por id y status='pendiente'", async () => {
-    const supabase = mockSupabase({ orders: {} });
+  it("llama a la RPC cancel_order_and_restock con p_order_id", async () => {
+    const supabase = mockSupabase(
+      {},
+      { rpc: { cancel_order_and_restock: { data: null, error: null } } },
+    );
 
     await cancelIfPending("o1", supabase);
 
-    expect(supabase.updates("orders")).toContainEqual({ status: "cancelado" });
-    const call = supabase.calls.find((c) => c.table === "orders" && c.op === "update");
-    expect(call?.chain).toContainEqual({ method: "eq", args: ["id", "o1"] });
-    expect(call?.chain).toContainEqual({ method: "eq", args: ["status", "pendiente"] });
+    expect(supabase.rpcCalls).toContainEqual({
+      name: "cancel_order_and_restock",
+      args: { p_order_id: "o1" },
+    });
   });
 
-  it("propaga el error tal cual (ej. si RLS ya lo rechazó porque cambió de estado)", async () => {
-    const supabase = mockSupabase({
-      orders: { error: { message: "new row violates row-level security policy" } },
-    });
+  it("propaga el error de Postgres de la RPC tal cual (ej. ya no está 'pendiente')", async () => {
+    const supabase = mockSupabase(
+      {},
+      {
+        rpc: {
+          cancel_order_and_restock: {
+            error: { message: "Solo se puede cancelar un pedido pendiente" },
+          },
+        },
+      },
+    );
 
     await expect(cancelIfPending("o1", supabase)).rejects.toMatchObject({
-      message: "new row violates row-level security policy",
+      message: "Solo se puede cancelar un pedido pendiente",
     });
   });
 });

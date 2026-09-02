@@ -12,7 +12,7 @@ import { LoadingState } from "@/components/shared/LoadingState";
 // revierte y queda anotado como intentado.
 
 const SUGGESTIONS = [
-  "¿qué laptop me recomiendas para diseño por menos de S/ 3,500?",
+  "¿qué laptop me recomiendas para diseño por menos de $ 3.500.000?",
   "busco audífonos para hacer ejercicio",
   "necesito un mouse para gaming",
 ];

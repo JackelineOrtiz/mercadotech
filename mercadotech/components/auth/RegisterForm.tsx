@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { validateRegister, type FieldErrors } from "@/lib/validators/auth";
@@ -113,9 +114,8 @@ export function RegisterForm({ onSubmit, loading = false, error }: RegisterFormP
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="register-password">Contraseña</Label>
-        <Input
+        <PasswordInput
           id="register-password"
-          type="password"
           autoComplete="new-password"
           value={values.password}
           onChange={(e) => setValues((v) => ({ ...v, password: e.target.value }))}
