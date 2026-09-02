@@ -4,7 +4,17 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { validateChangePassword, type FieldErrors } from "@/lib/validators/auth";
+
+const EMPTY_VALUES = { currentPassword: "", password: "", confirmPassword: "" };
 
 export interface ChangePasswordFormValues {
   currentPassword: string;
@@ -23,24 +33,39 @@ export interface ChangePasswordFormProps {
 // porque acá la única prueba de identidad es la sesión ambiente del
 // navegador — ver el hallazgo real documentado en
 // auth.service.changePassword.
+// Hallazgo real (Fase 7.5): el form ni avisaba que cambiar la contraseña
+// cierra la sesión (ver perfil/page.tsx), ni se limpiaba después de
+// guardar. Ahora el submit del <form> abre un diálogo de confirmación
+// ANTES de llamar a onSubmit — "Sí" ejecuta el cambio real (el caller
+// hace logout+redirect si sale bien), "No" cancela y limpia los campos
+// (pedido explícito del usuario, no solo cierra el diálogo dejando el
+// texto viejo ahí).
 export function ChangePasswordForm({
   onSubmit,
   loading = false,
   error,
 }: ChangePasswordFormProps) {
-  const [values, setValues] = useState<ChangePasswordFormValues>({
-    currentPassword: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [values, setValues] = useState<ChangePasswordFormValues>(EMPTY_VALUES);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const errors = validateChangePassword(values);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
+    setConfirmOpen(true);
+  }
+
+  function handleConfirm() {
+    setConfirmOpen(false);
     onSubmit(values);
+  }
+
+  function handleCancelConfirm() {
+    setConfirmOpen(false);
+    setValues(EMPTY_VALUES);
+    setFieldErrors({});
   }
 
   return (
@@ -105,6 +130,26 @@ export function ChangePasswordForm({
       <Button type="submit" data-testid="change-password-submit" disabled={loading}>
         {loading ? "Guardando…" : "Guardar contraseña"}
       </Button>
+
+      <Dialog open={confirmOpen} onOpenChange={(open) => !open && handleCancelConfirm()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Cambiar tu contraseña?</DialogTitle>
+            <DialogDescription>
+              Por seguridad, vas a cerrar sesión apenas se guarde el cambio — vas a tener que
+              volver a iniciar sesión con la contraseña nueva.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleCancelConfirm}>
+              No, cancelar
+            </Button>
+            <Button type="button" data-testid="change-password-confirm-dialog" onClick={handleConfirm}>
+              Sí, continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

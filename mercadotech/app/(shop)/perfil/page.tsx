@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { ProfileForm, type ProfileFormValues } from "@/components/auth/ProfileForm";
@@ -14,7 +15,9 @@ import { LoadingState } from "@/components/shared/LoadingState";
 // actualizar-contrasena, esta ruta SÍ necesita sesión normal para
 // llegar, así que el middleware alcanza para protegerla.
 export default function PerfilPage() {
-  const { user, profile, initializing, updateProfile, uploadAvatar, changePassword } = useAuth();
+  const router = useRouter();
+  const { user, profile, initializing, updateProfile, uploadAvatar, changePassword, logout } =
+    useAuth();
 
   // Estado de loading/error LOCAL a esta página, uno por sección — a
   // propósito, NO se usa el loading/error compartido de useAuth acá.
@@ -75,12 +78,23 @@ export default function PerfilPage() {
     }
   }
 
+  // Hallazgo real (Fase 7.5): el cambio de contraseña se guardaba pero la
+  // sesión ambiente seguía activa con el token viejo — por seguridad
+  // (navegador compartido, dispositivo desatendido, mismo motivo que ya
+  // documenta auth.service.changePassword para pedir la contraseña
+  // actual), ahora fuerza logout + vuelta a /login tras un cambio exitoso.
+  // ChangePasswordForm ya avisa esto explícitamente ANTES de llegar acá
+  // (su propio diálogo de confirmación) — este handler solo ejecuta lo
+  // que el usuario ya confirmó.
   async function handlePasswordSubmit(values: ChangePasswordFormValues) {
     setPasswordSubmitting(true);
     setPasswordError(null);
     try {
       await changePassword(userEmail, values.currentPassword, values.password);
-      toast.success("Contraseña actualizada.");
+      await logout();
+      toast.success("Contraseña actualizada. Iniciá sesión de nuevo.");
+      router.push("/login");
+      router.refresh();
     } catch (err) {
       // Incluye el caso real de Supabase "Invalid login credentials" si la
       // contraseña actual ingresada es incorrecta.
