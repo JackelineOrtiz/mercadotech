@@ -89,6 +89,55 @@ describe("chat.service.ask", () => {
     expect(mockedGenerateCompletion).not.toHaveBeenCalled();
   });
 
+  // Fase 7.5, hallazgo real: el chat no tenía memoria de conversación —
+  // cada mensaje era una consulta independiente. Con historial, un
+  // contexto vacío YA NO es el atajo sin-modelo: una réplica vaga ("¿esa
+  // tiene buena batería?") retrieva vacío a propósito, pero el modelo
+  // puede seguir respondiendo con lo ya establecido en turnos previos.
+  it("con historial y contexto vacío: SÍ llama a completion (a diferencia de sin historial), pasándole el historial", async () => {
+    mockedGenerateCompletion.mockClear();
+    const supabase = supabaseWithMatches([]);
+    const history = [
+      { role: "user" as const, content: "¿tienen laptops?" },
+      { role: "assistant" as const, content: "Sí, la Lenovo IdeaPad 3 [1]." },
+    ];
+
+    const result = await ask("¿esa tiene buena batería?", "compras", {}, supabase, history);
+
+    expect(mockedGenerateCompletion).toHaveBeenCalledOnce();
+    expect(mockedGenerateCompletion).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      history,
+    );
+    // hasRelevantContext sigue siendo false de verdad: no hay fuentes
+    // NUEVAS en este turno, aunque sí se haya llamado al modelo.
+    expect(result.hasRelevantContext).toBe(false);
+    expect(result.sources).toEqual([]);
+  });
+
+  it("con fuentes reales: le pasa el historial a completion en el orden real", async () => {
+    mockedGenerateCompletion.mockClear();
+    const supabase = supabaseWithMatches([
+      {
+        source_type: "producto",
+        source_id: "p1",
+        content: "Una laptop gamer con 16GB de RAM y buena batería.",
+        metadata: { title: "Laptop Gamer", price: 1500, category: "Laptops" },
+        similarity: 0.8,
+      },
+    ]);
+    const history = [{ role: "user" as const, content: "hola" }];
+
+    await ask("¿tienen laptops gamer?", "compras", {}, supabase, history);
+
+    expect(mockedGenerateCompletion).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      history,
+    );
+  });
+
   it("propaga el error de la RPC de búsqueda tal cual, sin llegar a completion", async () => {
     mockedGenerateCompletion.mockClear();
     const supabase = mockSupabase(

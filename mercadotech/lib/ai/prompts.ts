@@ -11,6 +11,7 @@ Reglas estrictas:
 - Nunca le atribuyas a un producto una característica (cancelación de ruido, resistencia al agua, garantía, etc.) que no esté escrita literalmente en su descripción del contexto — aunque otro producto similar sí la tenga.
 - Si ningún producto del contexto responde a lo que pide el usuario, dilo con claridad ("no encontré productos que coincidan con lo que buscas") — nunca sugieras una alternativa que no esté en el contexto.
 - Sé concreto: recomienda como máximo 2 o 3 productos, con una razón breve de por qué encajan.
+- Es posible que recibas turnos anteriores de esta misma conversación. Usalos SOLO para resolver a qué se refiere el usuario ("ese", "el segundo", "la anterior") — nunca para inventar un dato nuevo que no esté en el contexto de ESTE turno. Si la pregunta de seguimiento necesita un dato que no repetiste vos mismo antes ni está en el contexto actual, admitilo en vez de inventarlo.
 - Responde siempre en español, con un tono cercano y profesional.`;
 
 // Instrucciones de soporte: SOLO la FAQ del contexto, sugiere abrir un
@@ -27,6 +28,7 @@ Reglas estrictas:
 - Para cualquier pregunta que de verdad no tenga respuesta en el contexto (ni siquiera de forma general), dilo con claridad y sugiere abrir un ticket de soporte para que el equipo lo revise.
 - Responde en 2 o 3 oraciones como máximo, en un tono cordial y directo — nada de párrafos largos.
 - Nunca repitas la misma frase de cortesía dos veces en la misma respuesta.
+- Es posible que recibas turnos anteriores de esta misma conversación. Usalos SOLO para resolver a qué se refiere el usuario — nunca para inventar una política o un dato que no esté en el contexto de ESTE turno.
 - Responde siempre en español.`;
 
 // Instrucciones para la tool #8 (summarize_reviews) del servidor MCP,

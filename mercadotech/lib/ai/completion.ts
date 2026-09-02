@@ -1,4 +1,5 @@
 import { HUGGINGFACE_CHAT_MAX_TOKENS, HUGGINGFACE_CHAT_MODEL_DEFAULT } from "@/lib/constants/ai";
+import type { ChatHistoryTurn } from "@/types/chat";
 
 const CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions";
 
@@ -13,7 +14,17 @@ export interface CompletionResult {
 // (Guía HF, lección 2). Errores distintos, mensajes distintos (lección 8):
 // 401 = token; "model not supported"/"no provider" = el modelo rotó;
 // respuesta sin choices = respuesta inválida del proveedor.
-export async function generateCompletion(system: string, user: string): Promise<CompletionResult> {
+// history: turnos PREVIOS de la conversación (Fase 7.5, hallazgo real —
+// antes no existía ningún parámetro para esto, cada llamada era
+// independiente). Van entre el system prompt y el mensaje actual, en el
+// orden real en que se dijeron — es responsabilidad del caller (chat.
+// service.ask) recortarlos a un tamaño razonable, esta función solo los
+// inserta tal cual se los pasan.
+export async function generateCompletion(
+  system: string,
+  user: string,
+  history: ChatHistoryTurn[] = [],
+): Promise<CompletionResult> {
   const token = process.env.HUGGINGFACEHUB_API_TOKEN;
   if (!token) {
     throw new Error("HUGGINGFACEHUB_API_TOKEN no está configurada.");
@@ -31,6 +42,7 @@ export async function generateCompletion(system: string, user: string): Promise<
       max_tokens: HUGGINGFACE_CHAT_MAX_TOKENS,
       messages: [
         { role: "system", content: system },
+        ...history.map((turn) => ({ role: turn.role, content: turn.content })),
         { role: "user", content: user },
       ],
     }),

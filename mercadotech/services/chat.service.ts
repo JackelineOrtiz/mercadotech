@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import type { ChatMode, ChatResult } from "@/types/chat";
+import type { ChatHistoryTurn, ChatMode, ChatResult } from "@/types/chat";
 import { generateEmbedding } from "@/lib/ai/embeddings";
 import { generateCompletion } from "@/lib/ai/completion";
 import { SHOPPING_SYSTEM_INSTRUCTIONS, SUPPORT_SYSTEM_INSTRUCTIONS } from "@/lib/ai/prompts";
@@ -46,6 +46,11 @@ export async function ask(
   mode: ChatMode,
   opts: AskOptions,
   supabase: Client,
+  // Fase 7.5, hallazgo real: no existía NINGÚN parámetro de historial —
+  // cada mensaje era una consulta independiente, aunque la UI mostrara
+  // una conversación continua. El route handler ya lo recorta a
+  // CHAT_HISTORY_MAX_TURNS antes de llegar acá.
+  history: ChatHistoryTurn[] = [],
 ): Promise<ChatResult> {
   const sourceType = mode === "compras" ? "producto" : "articulo_soporte";
   const systemInstructions =
@@ -64,7 +69,15 @@ export async function ask(
     maxContextChars: opts.maxContextChars,
   });
 
-  if (context.sources.length === 0) {
+  // El atajo sin-modelo (ver NO_CONTEXT_ANSWER) solo aplica quesin
+  // historial: una réplica dentro de una conversación existente ("¿esa
+  // tiene buena batería?") retrieva vacío A PROPÓSITO — es demasiado vaga
+  // para matchear nada por sí sola — pero el modelo SÍ puede responderla
+  // con lo ya establecido en los turnos previos. Sin historial, un
+  // contexto vacío es indistinguible de "no hay nada relevante en serio",
+  // ahí sigue rigiendo el corte determinístico (Fase 7.5, hallazgo previo:
+  // el modelo alucinaba en vez de admitir que no sabía).
+  if (context.sources.length === 0 && history.length === 0) {
     return {
       query,
       answer: NO_CONTEXT_ANSWER[mode],
@@ -79,12 +92,15 @@ export async function ask(
     };
   }
 
-  const completion = await generateCompletion(systemInstructions, context.userMessage);
+  const completion = await generateCompletion(systemInstructions, context.userMessage, history);
 
   return {
     query,
     answer: completion.text,
-    hasRelevantContext: true,
+    // Real, no hardcodeado: en una réplica con historial y cero fuentes
+    // NUEVAS, sigue siendo false — el cliente no debería mostrar una
+    // sección "Fuentes" vacía como si hubiera citado algo.
+    hasRelevantContext: context.sources.length > 0,
     sources: context.sources,
     metadata: {
       model: completion.model,

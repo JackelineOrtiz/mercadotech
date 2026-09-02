@@ -29,6 +29,14 @@ export interface ChatMessage {
   sources?: ChatSource[];
 }
 
+// Fase 7.5, hallazgo real: el chat no reenviaba NINGÚN historial al
+// servidor — cada mensaje era una consulta independiente para el modelo,
+// aunque la UI mostrara una conversación continua. Lo que viaja de vuelta
+// al servidor es solo role+content (nunca sources: el modelo no necesita
+// las fichas ya citadas de vuelta, y mandarlas infla el prompt sin
+// aportar nada nuevo).
+export type ChatHistoryTurn = Pick<ChatMessage, "role" | "content">;
+
 export interface ChatResult {
   query: string;
   answer: string;
