@@ -51,7 +51,7 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <Label>Orden</Label>
+        <Label className="text-primary">Orden</Label>
         <Select
           value={value.sort}
           onValueChange={(next) => onChange({ sort: next as SortOption })}
@@ -79,7 +79,7 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm leading-none font-medium">Condición</legend>
+        <legend className="text-sm leading-none font-medium text-primary">Condición</legend>
         {PRODUCT_CONDITIONS.map((condition) => (
           <label key={condition} className="flex items-center gap-2 text-sm">
             <input
@@ -110,7 +110,7 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
       </label>
 
       <div className="flex flex-col gap-2">
-        <Label>Precio ($)</Label>
+        <Label className="text-primary">Precio ($)</Label>
         <div className="flex items-center gap-2">
           <Input
             type="number"
@@ -142,7 +142,10 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
 export function FiltersPanel(props: FiltersPanelProps) {
   return (
     <>
-      <aside className="hidden w-56 shrink-0 md:block">
+      {/* Hallazgo real (Fase 7.5): el panel se veía "muy pálido" sin nada
+          de color de marca — borde izquierdo en primary, mismo tono que
+          los checkbox/labels de arriba, en vez de solo texto neutro. */}
+      <aside className="hidden w-56 shrink-0 border-l-2 border-primary/30 pl-4 md:block">
         <FiltersBody {...props} />
       </aside>
 

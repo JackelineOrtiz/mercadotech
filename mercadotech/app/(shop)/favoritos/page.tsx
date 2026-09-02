@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 export default function FavoritosPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { items, loading, error, retry } = useFavorites(user?.id);
+  const { items, loading, error, remove, retry } = useFavorites(user?.id);
 
   return (
     <div>
@@ -27,7 +27,7 @@ export default function FavoritosPage() {
           action={<Button onClick={() => router.push("/")}>Explorar productos</Button>}
         />
       ) : (
-        <ProductGrid items={items} loading={loading} />
+        <ProductGrid items={items} loading={loading} onToggleFavorite={remove} />
       )}
     </div>
   );

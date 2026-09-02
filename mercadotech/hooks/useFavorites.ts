@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listMine } from "@/services/favorite.service";
+import { toast } from "sonner";
+import { listMine, toggle } from "@/services/favorite.service";
 import type { Product } from "@/types/product";
 
 // Lista completa para /favoritos. Requiere sesión (la ruta ya está
@@ -35,5 +36,25 @@ export function useFavorites(userId?: string) {
     fetchFavorites();
   }, [fetchFavorites]);
 
-  return { items, loading, error, retry: fetchFavorites };
+  // Fase 7.5, hallazgo real: /favoritos no tenía forma de desmarcar un
+  // producto salvo entrando a su ficha. Optimista con rollback (mismo
+  // patrón que useAdminUsers.changeRole): todo ítem en esta lista ya es
+  // favorito, así que togglear siempre significa "quitar" acá — nunca
+  // "agregar", a diferencia de favorite.service.toggle en general.
+  const remove = useCallback(
+    async (productId: string) => {
+      if (!userId) return;
+      const previous = items;
+      setItems((prev) => prev.filter((p) => p.id !== productId));
+      try {
+        await toggle(userId, productId);
+      } catch (err) {
+        setItems(previous);
+        toast.error((err as Error).message);
+      }
+    },
+    [userId, items],
+  );
+
+  return { items, loading, error, remove, retry: fetchFavorites };
 }
