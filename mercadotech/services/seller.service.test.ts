@@ -242,7 +242,7 @@ describe("seller.service.getSellerPublicProfile", () => {
   it("lee de la vista public_profiles (no de profiles) y resuelve avatar_url", async () => {
     const supabase = mockSupabase({
       public_profiles: {
-        maybeSingle: { id: "s1", display_name: "TecnoStore Perú", avatar_path: "s1/avatar.jpg" },
+        maybeSingle: { id: "s1", display_name: "TecnoStore Colombia", avatar_path: "s1/avatar.jpg" },
       },
     });
 
@@ -250,7 +250,7 @@ describe("seller.service.getSellerPublicProfile", () => {
 
     expect(profile).toEqual({
       id: "s1",
-      display_name: "TecnoStore Perú",
+      display_name: "TecnoStore Colombia",
       avatar_url: "https://fake.supabase.local/storage/v1/object/public/avatars/s1/avatar.jpg",
     });
     expect(supabase.calls.some((c) => c.table === "profiles")).toBe(false);
@@ -258,7 +258,7 @@ describe("seller.service.getSellerPublicProfile", () => {
 
   it("sin avatar_path: avatar_url null, sin llamar a getPublicUrl", async () => {
     const supabase = mockSupabase({
-      public_profiles: { maybeSingle: { id: "s1", display_name: "TecnoStore Perú", avatar_path: null } },
+      public_profiles: { maybeSingle: { id: "s1", display_name: "TecnoStore Colombia", avatar_path: null } },
     });
     const profile = await getSellerPublicProfile("s1", supabase);
     expect(profile?.avatar_url).toBeNull();

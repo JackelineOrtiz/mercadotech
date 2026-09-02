@@ -24,9 +24,10 @@ export function cn(...inputs: ClassValue[]) {
 // que la vista siga reflejando el dato real, aunque no sea la costumbre
 // habitual de Colombia para pesos.
 //
-// Nota: gran parte del contenido de ejemplo (nombres de vendedores, la
-// FAQ de soporte) sigue ambientado en Perú — cambio de contenido aparte,
-// pendiente, no forma parte de este fix de formato.
+// Nota: el contenido de ejemplo (nombres de vendedores, FAQ de soporte,
+// instrucciones de sistema de la IA) que seguía ambientado en Perú ya se
+// corrigió aparte (Fase 7.5, seed.sql/seed.prod.sql + lib/ai/prompts.ts) —
+// no formaba parte de este fix de formato de moneda.
 const priceFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",

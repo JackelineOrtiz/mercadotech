@@ -40,8 +40,8 @@ insert into auth.users (
   ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated', 'buyer1@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"María Fernanda Quispe"}', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000002', 'authenticated', 'authenticated', 'buyer2@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"Jorge Luis Ramírez"}', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000003', 'authenticated', 'authenticated', 'buyer3@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"Ana Lucía Torres"}', '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000004', 'authenticated', 'authenticated', 'seller1@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"TecnoStore Perú"}', '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000005', 'authenticated', 'authenticated', 'seller2@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"Gamer Zone Perú"}', '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000004', 'authenticated', 'authenticated', 'seller1@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"TecnoStore Colombia"}', '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000005', 'authenticated', 'authenticated', 'seller2@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"Gamer Zone Colombia"}', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-000000000006', 'authenticated', 'authenticated', 'admin1@mercadotech.test', crypt('MercadoTech123!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"display_name":"Admin MercadoTech"}', '', '', '', '');
 
 -- GoTrue (Supabase Auth) exige una identidad en auth.identities para poder
@@ -82,14 +82,14 @@ insert into public.categories (id, name, slug) values
   ('d0000000-0000-0000-0000-000000000008', 'Redes', 'redes');
 
 -- ============================================================
--- PRODUCTS (16) — 9 de seller1 (TecnoStore Perú), 7 de seller2 (Gamer Zone
--- Perú). 2 inactivos (b...009 y b...016) y 1 con stock 0 (b...008), para
+-- PRODUCTS (16) — 9 de seller1 (TecnoStore Colombia), 7 de seller2 (Gamer Zone
+-- Colombia). 2 inactivos (b...009 y b...016) y 1 con stock 0 (b...008), para
 -- probar filtros de catálogo y la validación de stock en el checkout.
 -- ============================================================
 insert into public.products (id, seller_id, category_id, title, description, brand, condition, price, stock, is_active) values
   ('b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000001', 'Laptop Lenovo IdeaPad Slim 3 15.6" Ryzen 5 16GB 512GB SSD', 'Ideal para estudios y teletrabajo. Procesador AMD Ryzen 5, pantalla Full HD antirreflejo y batería de larga duración. Incluye Windows 11 preinstalado.', 'Lenovo', 'nuevo', 2199.00, 8, true),
   ('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000001', 'Laptop HP Pavilion 14" Intel i5 8GB 512GB SSD', 'Diseño compacto y liviano, perfecta para uso diario y oficina. Procesador Intel Core i5 de última generación con gráficos integrados Iris Xe.', 'HP', 'nuevo', 2499.00, 5, true),
-  ('b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000002', 'Smartphone Samsung Galaxy A55 5G 128GB', 'Pantalla Super AMOLED de 6.6", cámara triple de 50MP y batería de 5000mAh. Compatible con redes 5G en Perú.', 'Samsung', 'nuevo', 1399.00, 12, true),
+  ('b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000002', 'Smartphone Samsung Galaxy A55 5G 128GB', 'Pantalla Super AMOLED de 6.6", cámara triple de 50MP y batería de 5000mAh. Compatible con redes 5G en Colombia.', 'Samsung', 'nuevo', 1399.00, 12, true),
   ('b0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000002', 'Smartphone Xiaomi Redmi Note 13 Pro 256GB', 'Cámara principal de 108MP, carga rápida de 67W y pantalla AMOLED de 120Hz. Excelente relación precio-calidad.', 'Xiaomi', 'nuevo', 999.00, 15, true),
   ('b0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000003', 'Procesador AMD Ryzen 5 5600X', '6 núcleos y 12 hilos, ideal para armar una PC de rendimiento gama media-alta para trabajo y juegos.', 'AMD', 'nuevo', 649.00, 10, true),
   ('b0000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000003', 'Memoria RAM Kingston Fury 16GB DDR4 3200MHz', 'Kit de memoria de alto rendimiento, compatible con la mayoría de placas madre AMD e Intel modernas.', 'Kingston', 'nuevo', 219.00, 20, true),
@@ -152,7 +152,7 @@ insert into public.order_items (id, order_id, product_id, seller_id, title_snaps
 -- ============================================================
 insert into public.questions (id, product_id, user_id, question, answer, answered_at, created_at) values
   ('10000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', '¿Viene con Windows instalado?', 'Sí, viene con Windows 11 Home preinstalado y activado de fábrica.', now() - interval '6 days', now() - interval '7 days'),
-  ('10000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', '¿Es liberado para cualquier operador?', 'Sí, el equipo es liberado y funciona con cualquier operador en Perú.', now() - interval '4 days', now() - interval '5 days'),
+  ('10000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', '¿Es liberado para cualquier operador?', 'Sí, el equipo es liberado y funciona con cualquier operador en Colombia.', now() - interval '4 days', now() - interval '5 days'),
   ('10000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000010', 'a0000000-0000-0000-0000-000000000001', '¿Tiene luces RGB?', 'No, este modelo usa retroiluminación blanca fija, sin efectos RGB.', now() - interval '2 days', now() - interval '3 days'),
   ('10000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000012', 'a0000000-0000-0000-0000-000000000002', '¿Es compatible con PS5?', 'Sí, funciona perfecto en PS5, PC y Nintendo Switch mediante el conector de 3.5mm.', now() - interval '1 day', now() - interval '2 days'),
   ('10000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', '¿Cuánto pesa la laptop?', null, null, now() - interval '1 day'),
@@ -212,16 +212,16 @@ insert into public.product_views (id, product_id, user_id, viewed_at) values
 -- ============================================================
 insert into public.support_articles (id, title, content, category, is_published) values
   ('50000000-0000-0000-0000-000000000001', '¿Cuánto demora el envío de mi pedido?',
-   'El tiempo de entrega depende de tu ubicación. Para Lima Metropolitana, los pedidos suelen llegar entre 2 y 4 días hábiles después de la confirmación del pago. Para provincias, el plazo estimado es de 4 a 8 días hábiles, dependiendo del operador logístico y la zona de destino.
+   'El tiempo de entrega depende de tu ubicación. Para Bogotá y su área metropolitana, los pedidos suelen llegar entre 2 y 4 días hábiles después de la confirmación del pago. Para el resto del país, el plazo estimado es de 4 a 8 días hábiles, dependiendo del operador logístico y la zona de destino.
 
 En temporadas de alta demanda, como campañas o fechas festivas, estos plazos pueden extenderse hasta 2 días adicionales. Te recomendamos revisar el estado de tu pedido desde la sección "Mis pedidos", donde se actualiza el estado conforme avanza: pendiente, pagado, enviado y entregado.
 
 Si tu pedido lleva más tiempo del estimado sin cambiar de estado, puedes abrir un ticket de soporte indicando el número de pedido para que lo revisemos.',
    'envíos', true),
   ('50000000-0000-0000-0000-000000000002', '¿Cuánto cuesta el envío?',
-   'El costo de envío se calcula automáticamente al finalizar la compra, según tu distrito o ciudad de entrega y el peso/volumen de los productos comprados. En Lima Metropolitana, los envíos suelen costar entre $ 15.000 y $ 35.000 según la zona.
+   'El costo de envío se calcula automáticamente al finalizar la compra, según tu ciudad o zona de entrega y el peso/volumen de los productos comprados. En Bogotá y su área metropolitana, los envíos suelen costar entre $ 15.000 y $ 35.000 según la zona.
 
-Para compras superiores a $ 300.000 en un mismo pedido, el envío es gratuito dentro de Lima Metropolitana. En provincias, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
+Para compras superiores a $ 300.000 en un mismo pedido, el envío es gratuito dentro de Bogotá y su área metropolitana. En el resto del país, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
 
 Si compras productos de más de un vendedor en el mismo carrito, el sistema puede generar más de un pedido si los tiempos o costos de envío difieren entre vendedores.',
    'envíos', true),
@@ -233,7 +233,7 @@ Cuando el vendedor marca tu pedido como "enviado", en muchos casos se agrega un 
 Si tienes dudas sobre el avance de tu pedido y no ves actualizaciones por varios días, comunícate con el vendedor a través de la sección de preguntas del producto o abre un ticket de soporte.',
    'envíos', true),
   ('50000000-0000-0000-0000-000000000004', '¿Qué métodos de pago aceptan?',
-   'MercadoTech acepta tarjetas de crédito y débito (Visa, Mastercard) procesadas de forma segura, así como pago contra entrega en distritos seleccionados de Lima Metropolitana, sujeto a confirmación del vendedor.
+   'MercadoTech acepta tarjetas de crédito y débito (Visa, Mastercard) procesadas de forma segura, así como pago contra entrega en zonas seleccionadas de Bogotá y su área metropolitana, sujeto a confirmación del vendedor.
 
 También ofrecemos la opción de pago en cuotas con tarjetas de crédito participantes, mostrada directamente al finalizar la compra, cuando el banco emisor lo permite. El monto de las cuotas y los intereses aplicables los define tu entidad bancaria, no MercadoTech.
 
@@ -247,7 +247,7 @@ Si notas un cargo que no reconoces, repórtalo de inmediato tanto a tu banco com
 Como medida adicional, algunas compras de montos altos pueden requerir una verificación extra por parte de tu banco antes de confirmarse.',
    'pagos', true),
   ('50000000-0000-0000-0000-000000000006', '¿Puedo pagar contra entrega?',
-   'El pago contra entrega está disponible solo para algunos distritos de Lima Metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción al finalizar la compra, únicamente si aplica a tu dirección y a los productos del carrito.
+   'El pago contra entrega está disponible solo para algunas zonas de Bogotá y su área metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción al finalizar la compra, únicamente si aplica a tu dirección y a los productos del carrito.
 
 Al recibir el pedido, el repartidor cobra el monto exacto indicado en el pedido; te recomendamos tener el monto aproximado a la mano para agilizar la entrega.
 
@@ -319,7 +319,7 @@ insert into public.ticket_messages (id, ticket_id, sender_role, content, created
 --   buyer1@mercadotech.test   — María Fernanda Quispe (buyer)
 --   buyer2@mercadotech.test   — Jorge Luis Ramírez    (buyer)
 --   buyer3@mercadotech.test   — Ana Lucía Torres      (buyer)
---   seller1@mercadotech.test  — TecnoStore Perú       (seller)
---   seller2@mercadotech.test  — Gamer Zone Perú       (seller)
+--   seller1@mercadotech.test  — TecnoStore Colombia   (seller)
+--   seller2@mercadotech.test  — Gamer Zone Colombia   (seller)
 --   admin1@mercadotech.test   — Admin MercadoTech     (admin)
 -- ============================================================================

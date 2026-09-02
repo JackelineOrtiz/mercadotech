@@ -20,7 +20,7 @@ export const BUYER1: TestUser = {
 export const SELLER1: TestUser = {
   email: "seller1@mercadotech.test",
   password: PASSWORD,
-  displayName: "TecnoStore Perú",
+  displayName: "TecnoStore Colombia",
 };
 
 // Agregados en la Fase 6.6: el único pedido 'pagado' del seed (c…003)
@@ -35,5 +35,5 @@ export const BUYER2: TestUser = {
 export const SELLER2: TestUser = {
   email: "seller2@mercadotech.test",
   password: PASSWORD,
-  displayName: "Gamer Zone Perú",
+  displayName: "Gamer Zone Colombia",
 };

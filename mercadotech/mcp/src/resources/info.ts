@@ -16,7 +16,7 @@ export function registerInfo(server: McpServer): void {
       return resourceJson(uri.href, {
         name: "MercadoTech",
         description:
-          "Marketplace de productos tecnológicos en Perú, con búsqueda semántica y asistentes " +
+          "Marketplace de productos tecnológicos en Colombia, con búsqueda semántica y asistentes " +
           "de compras/soporte basados en el catálogo y la FAQ reales de la plataforma.",
         readOnly: true,
         tools: [
