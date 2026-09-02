@@ -98,6 +98,7 @@ export default function PerfilPage() {
           phone: profile.phone ?? "",
         }}
         avatarUrl={profile.avatar_url}
+        email={userEmail}
         onSubmit={handleProfileSubmit}
         onAvatarChange={handleAvatarChange}
         loading={profileSubmitting || avatarUploading}
