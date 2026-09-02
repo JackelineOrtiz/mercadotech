@@ -64,7 +64,7 @@ test("flujo completo del comprador: login, filtrar, comprar y ver el pedido", as
     await catalog.openProduct(LAPTOP_WITH_STOCK.title);
     await expect(page).toHaveURL(`/producto/${LAPTOP_WITH_STOCK.id}`);
     await expect(product.gallery(LAPTOP_WITH_STOCK.title)).toBeVisible();
-    await expect(product.price()).toHaveText("$ 2.199,00");
+    await expect(product.price()).toHaveText("$ 2.850.000,00");
   });
 
   await test.step("4. agrega 2 unidades → contador del navbar = 2", async () => {
@@ -75,7 +75,7 @@ test("flujo completo del comprador: login, filtrar, comprar y ver el pedido", as
   let orderId = "";
   await test.step('5. carrito → subtotal correcto → "Finalizar compra"', async () => {
     await cart.goto();
-    await expect(cart.subtotal()).toHaveText("$ 4.398,00");
+    await expect(cart.subtotal()).toHaveText("$ 5.700.000,00");
     orderId = await cart.checkout();
   });
 
@@ -85,8 +85,8 @@ test("flujo completo del comprador: login, filtrar, comprar y ver el pedido", as
 
     const row = orders.itemsTable().locator("tr", { hasText: LAPTOP_WITH_STOCK.title });
     await expect(row.getByRole("cell").nth(2)).toHaveText("2"); // Cantidad
-    await expect(row.getByRole("cell").nth(3)).toHaveText("$ 4.398,00"); // Subtotal de la fila
-    await expect(orders.total()).toHaveText("$ 4.398,00");
+    await expect(row.getByRole("cell").nth(3)).toHaveText("$ 5.700.000,00"); // Subtotal de la fila
+    await expect(orders.total()).toHaveText("$ 5.700.000,00");
   });
 
   await test.step('7. "Mis pedidos" lista ese pedido (por id)', async () => {
