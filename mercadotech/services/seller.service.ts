@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { Product } from "@/types/product";
 import type { SellerOrder } from "@/types/order";
-import type { PendingQuestion } from "@/types/question";
+import type { SellerQuestion } from "@/types/question";
 import type { OrderStatus, ProductCondition } from "@/lib/constants/roles";
 import { PRODUCT_SELECT, mapProduct, type ProductQueryRow } from "@/services/product.service";
 import { getPublicUrl } from "@/services/storage.service";
@@ -252,18 +252,24 @@ export async function updateOrderStatus(
   if (error) throw error;
 }
 
-// Preguntas sin responder de TODOS los productos del vendedor (Fase 7.5,
-// hallazgo real: la única forma de responder era entrar a la página
-// pública de cada producto uno por uno). questions_select_all ya es
-// pública (using (true)) — no hace falta ningún permiso especial, solo
-// dos queries: qué productos son míos, y sus preguntas sin answer. Mismo
+// TODAS las preguntas de TODOS los productos del vendedor, pendientes y
+// respondidas (Fase 7.5, hallazgo real: la única forma de responder era
+// entrar a la página pública de cada producto uno por uno). Se llamó
+// listMyPendingQuestions en su primera versión y filtraba con
+// .is("answer", null) — hallazgo real #2, mismo smoke test: el vendedor
+// respondía una pregunta y esta desaparecía de la pantalla sin dejar
+// rastro de lo que había contestado. Ahora trae todo (más reciente
+// primero) y la UI (useSellerQuestions/vendedor/preguntas) separa
+// pendientes de respondidas para poder mostrar ambas. questions_select_all
+// ya es pública (using (true)) — no hace falta ningún permiso especial,
+// solo dos queries: qué productos son míos, y sus preguntas. Mismo
 // criterio de dos queries que listMyOrders, por la misma razón (join
-// anidado no puede filtrar limpio "mis productos" + "sin responder" a la
-// vez sin duplicar lógica de negocio en el service).
-export async function listMyPendingQuestions(
+// anidado no puede filtrar limpio "mis productos" sin duplicar lógica de
+// negocio en el service).
+export async function listMyQuestions(
   sellerId: string,
   supabase: Client = createClient(),
-): Promise<PendingQuestion[]> {
+): Promise<SellerQuestion[]> {
   const { data: products, error: productsError } = await supabase
     .from("products")
     .select("id, title")
@@ -280,7 +286,6 @@ export async function listMyPendingQuestions(
       "product_id",
       products.map((p) => p.id),
     )
-    .is("answer", null)
     .order("created_at", { ascending: false });
   if (questionsError) throw questionsError;
 

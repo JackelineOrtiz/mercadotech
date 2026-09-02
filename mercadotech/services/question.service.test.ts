@@ -1,6 +1,88 @@
 import { describe, it, expect } from "vitest";
-import { listByProduct, getById, create, answer } from "@/services/question.service";
+import { listByProduct, listByUser, getById, create, answer } from "@/services/question.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
+
+// Fase 7.5, hallazgo real: no había forma de que un comprador revisara
+// después las preguntas que había hecho. Join anidado a products (no dos
+// queries, a diferencia de seller.service.listMyQuestions).
+describe("question.service.listByUser", () => {
+  it("filtra por user_id, ordena por created_at desc y resuelve título+portada del producto", async () => {
+    const supabase = mockSupabase({
+      questions: {
+        select: [
+          {
+            id: "q1",
+            product_id: "p1",
+            user_id: "u1",
+            question: "¿Trae cargador?",
+            answer: "Sí.",
+            answered_at: "2026-01-02T00:00:00.000Z",
+            created_at: "2026-01-02",
+            products: {
+              title: "Laptop",
+              product_images: [
+                { image_path: "s1/p1/1.jpg", position: 1 },
+                { image_path: "s1/p1/0.jpg", position: 0 },
+              ],
+            },
+          },
+          {
+            id: "q2",
+            product_id: "p2",
+            user_id: "u1",
+            question: "¿Es inalámbrico?",
+            answer: null,
+            answered_at: null,
+            created_at: "2026-01-01",
+            products: { title: "Mouse", product_images: [] },
+          },
+        ],
+      },
+    });
+
+    const questions = await listByUser("u1", supabase);
+
+    const call = supabase.calls.find((c) => c.table === "questions" && c.op === "select");
+    expect(call?.chain).toContainEqual({ method: "eq", args: ["user_id", "u1"] });
+    expect(call?.chain).toContainEqual({ method: "order", args: ["created_at", { ascending: false }] });
+
+    expect(questions[0]).toMatchObject({
+      id: "q1",
+      productTitle: "Laptop",
+      productImageUrl: expect.stringContaining("s1/p1/0.jpg"),
+    });
+    // Sin product_images: portada null, no revienta.
+    expect(questions[1]).toMatchObject({ id: "q2", productTitle: "Mouse", productImageUrl: null });
+  });
+
+  it("producto borrado (products null): productTitle vacío, productImageUrl null", async () => {
+    const supabase = mockSupabase({
+      questions: {
+        select: [
+          {
+            id: "q1",
+            product_id: "p1",
+            user_id: "u1",
+            question: "¿Trae cargador?",
+            answer: null,
+            answered_at: null,
+            created_at: "2026-01-01",
+            products: null,
+          },
+        ],
+      },
+    });
+
+    const questions = await listByUser("u1", supabase);
+
+    expect(questions[0]).toMatchObject({ productTitle: "", productImageUrl: null });
+  });
+
+  it("propaga el error tal cual", async () => {
+    const supabase = mockSupabase({ questions: { error: { message: "permission denied" } } });
+    await expect(listByUser("u1", supabase)).rejects.toMatchObject({ message: "permission denied" });
+  });
+});
 
 describe("question.service.listByProduct", () => {
   it("filtra por product_id y ordena por created_at desc", async () => {
