@@ -14,6 +14,8 @@ export interface ProductGridProps {
   // ProductGrid (categoría, búsqueda, tienda, favoritos) — solo la home
   // lo pasa.
   priorityCount?: number;
+  // Fase 7.5: solo /favoritos lo pasa — ver ProductCard.
+  onToggleFavorite?: (productId: string) => void;
 }
 
 const GRID_CLASS = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
@@ -25,6 +27,7 @@ export function ProductGrid({
   emptyTitle = "No encontramos productos",
   emptyDescription = "Prueba ajustando los filtros o la búsqueda.",
   priorityCount = 0,
+  onToggleFavorite,
 }: ProductGridProps) {
   if (loading) {
     return (
@@ -44,7 +47,12 @@ export function ProductGrid({
   return (
     <div className={GRID_CLASS} data-testid="product-grid">
       {items.map((product, i) => (
-        <ProductCard key={product.id} product={product} priority={i < priorityCount} />
+        <ProductCard
+          key={product.id}
+          product={product}
+          priority={i < priorityCount}
+          onToggleFavorite={onToggleFavorite}
+        />
       ))}
     </div>
   );
