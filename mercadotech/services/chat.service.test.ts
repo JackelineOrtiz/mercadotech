@@ -67,15 +67,26 @@ describe("chat.service.ask", () => {
     expect(supabaseSoporte.rpcCalls[0].args).toMatchObject({ p_source_type: "articulo_soporte" });
   });
 
-  it("hasRelevantContext=false (ninguna ficha pasó el filtro) IGUAL llama a completion — el modelo debe poder admitir que no sabe", async () => {
+  // Fase 7.5, hallazgo real validando el asistente con datos reales: antes
+  // de este cambio, con context vacío IGUAL se llamaba a completion, y el
+  // modelo gratuito de Hugging Face no siempre respetaba la instrucción de
+  // admitir que no sabe — en varios casos inventó productos/precios/citas
+  // de artículos que no existen. Corte determinístico: sin fuentes, ni
+  // se llama al modelo — respuesta fija, cero riesgo de alucinar.
+  it("hasRelevantContext=false (ninguna ficha pasó el filtro): NO llama a completion, responde fijo por mode", async () => {
     mockedGenerateCompletion.mockClear();
-    const supabase = supabaseWithMatches([]); // sin matches en absoluto
+    const supabaseCompras = supabaseWithMatches([]);
+    const resultCompras = await ask("pregunta sin fichas relevantes", "compras", {}, supabaseCompras);
 
-    const result = await ask("pregunta sin fichas relevantes", "compras", {}, supabase);
+    expect(resultCompras.hasRelevantContext).toBe(false);
+    expect(resultCompras.sources).toEqual([]);
+    expect(resultCompras.answer).toMatch(/no encontré productos/i);
+    expect(mockedGenerateCompletion).not.toHaveBeenCalled();
 
-    expect(result.hasRelevantContext).toBe(false);
-    expect(result.sources).toEqual([]);
-    expect(mockedGenerateCompletion).toHaveBeenCalledOnce();
+    const supabaseSoporte = supabaseWithMatches([]);
+    const resultSoporte = await ask("pregunta sin fichas relevantes", "soporte", {}, supabaseSoporte);
+    expect(resultSoporte.answer).toMatch(/no tengo información/i);
+    expect(mockedGenerateCompletion).not.toHaveBeenCalled();
   });
 
   it("propaga el error de la RPC de búsqueda tal cual, sin llegar a completion", async () => {
