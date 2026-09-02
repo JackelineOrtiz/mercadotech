@@ -80,3 +80,13 @@ export const HUGGINGFACE_CHAT_MAX_TOKENS = 1024;
 // escribe a mano, y evita mandar un texto absurdamente largo (y costoso) a
 // generar su embedding o a un system prompt.
 export const CHAT_QUERY_MAX_CHARS = 4000;
+
+// Fase 7.5, hallazgo real: el chat no tenía NINGUNA memoria de
+// conversación — cada mensaje era una consulta independiente para el
+// modelo, aunque la UI mostrara un historial continuo. Ahora el cliente
+// reenvía los turnos previos y el servidor los recorta a los últimos N
+// (nunca confía en que el cliente mande un historial razonable) — 6
+// turnos (3 idas y vueltas) alcanza para resolver referencias típicas
+// ("esa laptop", "el anterior") sin inflar el prompt ni el costo de cada
+// llamada a Hugging Face con una conversación larga completa.
+export const CHAT_HISTORY_MAX_TURNS = 6;

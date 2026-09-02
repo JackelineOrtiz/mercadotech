@@ -16,6 +16,12 @@ export function useChat(mode: ChatMode) {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
 
+      // Fase 7.5, hallazgo real: antes NUNCA se reenviaba el historial —
+      // cada mensaje era una consulta independiente para el modelo, aunque
+      // acá mismo se mostrara una conversación continua. `messages` (el
+      // estado ANTES de este turno) es lo que se manda — nunca se le
+      // manda sources de vuelta, el servidor no las necesita.
+      const historyForRequest = messages.map(({ role, content }) => ({ role, content }));
       setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
       setLoading(true);
 
@@ -23,7 +29,7 @@ export function useChat(mode: ChatMode) {
         const res = await fetch("/api/v1/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: trimmed, mode }),
+          body: JSON.stringify({ query: trimmed, mode, history: historyForRequest }),
         });
         const json = await res.json();
         if (!res.ok) {
@@ -46,7 +52,7 @@ export function useChat(mode: ChatMode) {
         setLoading(false);
       }
     },
-    [mode, loading],
+    [mode, loading, messages],
   );
 
   return { messages, sendMessage, loading };
