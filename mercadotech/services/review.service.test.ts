@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { listByProduct, getAverage, canReview, create } from "@/services/review.service";
+import { listByProduct, getAverage, canReview, create, reply } from "@/services/review.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
 describe("review.service.listByProduct", () => {
@@ -95,5 +95,42 @@ describe("review.service.create", () => {
     await expect(
       create({ productId: "p1", buyerId: "u1", orderId: "o1", rating: 5 }, supabase),
     ).rejects.toMatchObject({ message: "duplicate key value violates unique constraint" });
+  });
+});
+
+// Fase 7.5: permitido por reviews_update_seller_reply (RLS) +
+// protect_review_columns_trigger, que es quien de verdad restringe que
+// este UPDATE solo pueda tocar seller_reply/seller_reply_at — este test
+// solo ancla el UPDATE que arma el service, no la protección en sí (eso
+// vive en la base, no se puede probar con este mock).
+describe("review.service.reply", () => {
+  it("actualiza seller_reply y seller_reply_at, filtrando por id", async () => {
+    const updated = {
+      id: "r1",
+      product_id: "p1",
+      buyer_id: "u1",
+      order_id: "o1",
+      rating: 5,
+      comment: "Excelente",
+      seller_reply: "¡Gracias por tu compra!",
+      seller_reply_at: "2026-01-01T00:00:00.000Z",
+    };
+    const supabase = mockSupabase({ reviews: { single: updated } });
+
+    const review = await reply("r1", "¡Gracias por tu compra!", supabase);
+
+    expect(review).toEqual(updated);
+    const call = supabase.calls.find((c) => c.table === "reviews" && c.op === "update");
+    expect(call?.payload).toMatchObject({ seller_reply: "¡Gracias por tu compra!" });
+    expect(call?.chain).toContainEqual({ method: "eq", args: ["id", "r1"] });
+  });
+
+  it("propaga el error tal cual (ej. el trigger rechaza porque no sos el vendedor)", async () => {
+    const supabase = mockSupabase({
+      reviews: { error: { message: "El vendedor solo puede editar su respuesta a la reseña" } },
+    });
+    await expect(reply("r1", "texto", supabase)).rejects.toMatchObject({
+      message: "El vendedor solo puede editar su respuesta a la reseña",
+    });
   });
 });

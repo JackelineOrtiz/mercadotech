@@ -57,5 +57,19 @@ export function useReviews(productId: string, userId?: string) {
     [productId, canReview.orderId, fetchAll],
   );
 
-  return { reviews, average, count, canReview, loading, error, submit, retry: fetchAll };
+  // Fase 7.5, hallazgo real: no existía forma de que el vendedor
+  // respondiera una reseña. Sin optimismo local (a diferencia de
+  // submit/otros hooks): reply() solo la usa isOwner desde la MISMA
+  // página de producto, que ya vuelve a pedir reviews.listByProduct al
+  // terminar — no vale la pena duplicar el estado local para un caso de
+  // uso tan puntual.
+  const reply = useCallback(
+    async (reviewId: string, replyText: string) => {
+      await reviewService.reply(reviewId, replyText);
+      await fetchAll();
+    },
+    [fetchAll],
+  );
+
+  return { reviews, average, count, canReview, loading, error, submit, reply, retry: fetchAll };
 }
