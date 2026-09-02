@@ -45,16 +45,16 @@ on conflict (id) do nothing;
 -- ============================================================
 insert into public.support_articles (id, title, content, category, is_published) values
   ('50000000-0000-0000-0000-000000000001', '¿Cuánto demora el envío de mi pedido?',
-   'El tiempo de entrega depende de tu ubicación. Para Lima Metropolitana, los pedidos suelen llegar entre 2 y 4 días hábiles después de la confirmación del pago. Para provincias, el plazo estimado es de 4 a 8 días hábiles, dependiendo del operador logístico y la zona de destino.
+   'El tiempo de entrega depende de tu ubicación. Para Bogotá y su área metropolitana, los pedidos suelen llegar entre 2 y 4 días hábiles después de la confirmación del pago. Para el resto del país, el plazo estimado es de 4 a 8 días hábiles, dependiendo del operador logístico y la zona de destino.
 
 En temporadas de alta demanda, como campañas o fechas festivas, estos plazos pueden extenderse hasta 2 días adicionales. Te recomendamos revisar el estado de tu pedido desde la sección "Mis pedidos", donde se actualiza el estado conforme avanza: pendiente, pagado, enviado y entregado.
 
 Si tu pedido lleva más tiempo del estimado sin cambiar de estado, puedes abrir un ticket de soporte indicando el número de pedido para que lo revisemos.',
    'envíos', true),
   ('50000000-0000-0000-0000-000000000002', '¿Cuánto cuesta el envío?',
-   'El costo de envío se calcula automáticamente al finalizar la compra, según tu distrito o ciudad de entrega y el peso/volumen de los productos comprados. En Lima Metropolitana, los envíos suelen costar entre $ 15.000 y $ 35.000 según la zona.
+   'El costo de envío se calcula automáticamente al finalizar la compra, según tu ciudad o zona de entrega y el peso/volumen de los productos comprados. En Bogotá y su área metropolitana, los envíos suelen costar entre $ 15.000 y $ 35.000 según la zona.
 
-Para compras superiores a $ 300.000 en un mismo pedido, el envío es gratuito dentro de Lima Metropolitana. En provincias, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
+Para compras superiores a $ 300.000 en un mismo pedido, el envío es gratuito dentro de Bogotá y su área metropolitana. En el resto del país, el costo varía según el operador logístico disponible en tu zona y se muestra antes de confirmar la compra, nunca después.
 
 Si compras productos de más de un vendedor en el mismo carrito, el sistema puede generar más de un pedido si los tiempos o costos de envío difieren entre vendedores.',
    'envíos', true),
@@ -66,7 +66,7 @@ Cuando el vendedor marca tu pedido como "enviado", en muchos casos se agrega un 
 Si tienes dudas sobre el avance de tu pedido y no ves actualizaciones por varios días, comunícate con el vendedor a través de la sección de preguntas del producto o abre un ticket de soporte.',
    'envíos', true),
   ('50000000-0000-0000-0000-000000000004', '¿Qué métodos de pago aceptan?',
-   'MercadoTech acepta tarjetas de crédito y débito (Visa, Mastercard) procesadas de forma segura, así como pago contra entrega en distritos seleccionados de Lima Metropolitana, sujeto a confirmación del vendedor.
+   'MercadoTech acepta tarjetas de crédito y débito (Visa, Mastercard) procesadas de forma segura, así como pago contra entrega en zonas seleccionadas de Bogotá y su área metropolitana, sujeto a confirmación del vendedor.
 
 También ofrecemos la opción de pago en cuotas con tarjetas de crédito participantes, mostrada directamente al finalizar la compra, cuando el banco emisor lo permite. El monto de las cuotas y los intereses aplicables los define tu entidad bancaria, no MercadoTech.
 
@@ -80,7 +80,7 @@ Si notas un cargo que no reconoces, repórtalo de inmediato tanto a tu banco com
 Como medida adicional, algunas compras de montos altos pueden requerir una verificación extra por parte de tu banco antes de confirmarse.',
    'pagos', true),
   ('50000000-0000-0000-0000-000000000006', '¿Puedo pagar contra entrega?',
-   'El pago contra entrega está disponible solo para algunos distritos de Lima Metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción al finalizar la compra, únicamente si aplica a tu dirección y a los productos del carrito.
+   'El pago contra entrega está disponible solo para algunas zonas de Bogotá y su área metropolitana y depende de que el vendedor lo tenga habilitado para ese producto específico. Verás esta opción al finalizar la compra, únicamente si aplica a tu dirección y a los productos del carrito.
 
 Al recibir el pedido, el repartidor cobra el monto exacto indicado en el pedido; te recomendamos tener el monto aproximado a la mano para agilizar la entrega.
 
