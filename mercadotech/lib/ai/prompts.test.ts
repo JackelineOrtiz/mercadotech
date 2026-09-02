@@ -45,3 +45,20 @@ describe("SHOPPING_SYSTEM_INSTRUCTIONS", () => {
     expect(SHOPPING_SYSTEM_INSTRUCTIONS).toContain("revisá TODAS las fuentes");
   });
 });
+
+// Fase 7.5, hallazgo real de un subagente de auditoría (segunda ronda,
+// retomando el audit tras renovar el token de Hugging Face): el modelo
+// de soporte inventó rutas de navegación de UI plausibles pero
+// inexistentes ("Ayuda → Soporte → Abrir un ticket", cambiar contraseña
+// desde "Mi perfil") que ningún artículo de la FAQ describe, y en un
+// turno distinto generalizó una condición ("si sos vendedor") a un caso
+// donde no aplicaba (un comprador).
+describe("SUPPORT_SYSTEM_INSTRUCTIONS — hallazgos de la segunda ronda del audit", () => {
+  it("incluye la instrucción de no inventar rutas de navegación de UI no escritas literalmente en el artículo", () => {
+    expect(SUPPORT_SYSTEM_INSTRUCTIONS).toContain("ruta de navegación");
+  });
+
+  it("incluye la instrucción de respetar literalmente las condiciones/excepciones de un artículo, sin generalizarlas", () => {
+    expect(SUPPORT_SYSTEM_INSTRUCTIONS).toContain("condición o excepción");
+  });
+});
