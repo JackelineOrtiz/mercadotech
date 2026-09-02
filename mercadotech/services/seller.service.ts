@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { Product } from "@/types/product";
 import type { SellerOrder } from "@/types/order";
+import type { PendingQuestion } from "@/types/question";
 import type { OrderStatus, ProductCondition } from "@/lib/constants/roles";
 import { PRODUCT_SELECT, mapProduct, type ProductQueryRow } from "@/services/product.service";
 import { getPublicUrl } from "@/services/storage.service";
@@ -249,4 +250,42 @@ export async function updateOrderStatus(
 ): Promise<void> {
   const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
   if (error) throw error;
+}
+
+// Preguntas sin responder de TODOS los productos del vendedor (Fase 7.5,
+// hallazgo real: la única forma de responder era entrar a la página
+// pública de cada producto uno por uno). questions_select_all ya es
+// pública (using (true)) — no hace falta ningún permiso especial, solo
+// dos queries: qué productos son míos, y sus preguntas sin answer. Mismo
+// criterio de dos queries que listMyOrders, por la misma razón (join
+// anidado no puede filtrar limpio "mis productos" + "sin responder" a la
+// vez sin duplicar lógica de negocio en el service).
+export async function listMyPendingQuestions(
+  sellerId: string,
+  supabase: Client = createClient(),
+): Promise<PendingQuestion[]> {
+  const { data: products, error: productsError } = await supabase
+    .from("products")
+    .select("id, title")
+    .eq("seller_id", sellerId);
+  if (productsError) throw productsError;
+  if (products.length === 0) return [];
+
+  const titleByProductId = new Map(products.map((p) => [p.id, p.title]));
+
+  const { data: questions, error: questionsError } = await supabase
+    .from("questions")
+    .select("*")
+    .in(
+      "product_id",
+      products.map((p) => p.id),
+    )
+    .is("answer", null)
+    .order("created_at", { ascending: false });
+  if (questionsError) throw questionsError;
+
+  return questions.map((q) => ({
+    ...q,
+    productTitle: titleByProductId.get(q.product_id) ?? "",
+  }));
 }

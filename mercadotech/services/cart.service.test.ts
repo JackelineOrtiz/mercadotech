@@ -107,6 +107,22 @@ describe("cart.service.addItem", () => {
     expect(result).toEqual({ added: 2, capped: true });
   });
 
+  it("stock enorme: recorta a MAX_CART_QUANTITY (10), no al stock real (Fase 7.5, hallazgo real: numeric field overflow en el checkout con stock=10000 y 1553 unidades pedidas)", async () => {
+    const supabase = mockSupabase({
+      products: { single: { stock: 10000 } },
+      cart_items: { maybeSingle: null },
+    });
+
+    const result = await addItem("u1", "p1", 1553, supabase);
+
+    expect(supabase.inserts("cart_items")).toContainEqual({
+      user_id: "u1",
+      product_id: "p1",
+      quantity: 10,
+    });
+    expect(result).toEqual({ added: 10, capped: true });
+  });
+
   it("propaga el error de leer el stock del producto tal cual", async () => {
     const supabase = mockSupabase({
       products: { error: { message: "producto no encontrado", code: "PGRST116" } },
@@ -139,6 +155,17 @@ describe("cart.service.updateQuantity", () => {
     await updateQuantity("c1", 10, supabase);
 
     expect(supabase.updates("cart_items")).toContainEqual({ quantity: 3 });
+  });
+
+  it("clampea a MAX_CART_QUANTITY aunque el stock real sea mucho mayor (Fase 7.5)", async () => {
+    const supabase = mockSupabase({
+      cart_items: { single: { product_id: "p1" } },
+      products: { single: { stock: 10000 } },
+    });
+
+    await updateQuantity("c1", 1553, supabase);
+
+    expect(supabase.updates("cart_items")).toContainEqual({ quantity: 10 });
   });
 
   it("una cantidad dentro del stock no se recorta", async () => {

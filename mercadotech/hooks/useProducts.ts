@@ -13,6 +13,7 @@ export interface UseProductsFilters {
   minPrice?: number;
   maxPrice?: number;
   sort: SortOption;
+  hideOutOfStock: boolean;
 }
 
 export interface UseProductsOptions {
@@ -42,6 +43,7 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
   const minPrice = minPriceParam ? Number(minPriceParam) : undefined;
   const maxPrice = maxPriceParam ? Number(maxPriceParam) : undefined;
   const sort = (searchParams.get("sort") as SortOption | null) ?? DEFAULT_SORT;
+  const hideOutOfStock = searchParams.get("sinStock") === "0";
   const pageParam = searchParams.get("page");
   const page = pageParam ? Number(pageParam) : 1;
 
@@ -56,6 +58,7 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
       minPrice,
       maxPrice,
       sort,
+      hideOutOfStock,
       page,
     })
       .then(({ items, total }) => {
@@ -67,7 +70,7 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
         setError((err as Error).message);
         setLoading(false);
       });
-  }, [categorySlug, sellerId, search, conditionKey, minPrice, maxPrice, sort, page]);
+  }, [categorySlug, sellerId, search, conditionKey, minPrice, maxPrice, sort, hideOutOfStock, page]);
 
   useEffect(() => {
     fetchProducts();
@@ -105,6 +108,7 @@ export function useProducts({ categorySlug, sellerId }: UseProductsOptions = {})
     minPrice,
     maxPrice,
     sort,
+    hideOutOfStock,
   };
 
   return { items, total, page, loading, error, filters, setFilter, setPage, retry: fetchProducts };

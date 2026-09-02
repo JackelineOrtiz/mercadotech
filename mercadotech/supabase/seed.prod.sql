@@ -103,7 +103,7 @@ En todos los casos de falla de fábrica, el vendedor es responsable de la repara
   ('50000000-0000-0000-0000-000000000009', '¿Cómo creo o verifico mi cuenta?',
    'Para crear una cuenta necesitas un correo electrónico válido y una contraseña. Después del registro, te enviamos un correo de verificación; algunas funciones, como publicar productos si eres vendedor, requieren que confirmes tu correo antes de habilitarse.
 
-Puedes completar tu perfil agregando tu nombre visible, número de teléfono y foto de perfil desde la sección "Mi cuenta". Esta información ayuda a que compradores y vendedores generen más confianza entre sí durante una compraventa.
+Puedes completar tu perfil agregando tu nombre visible, número de teléfono y foto de perfil desde la sección "Mi perfil". Esta información ayuda a que compradores y vendedores generen más confianza entre sí durante una compraventa.
 
 Si te registraste con un correo incorrecto, contáctanos por un ticket de soporte para actualizarlo; por seguridad, este cambio no se puede hacer directamente desde el perfil.',
    'cuenta', true),

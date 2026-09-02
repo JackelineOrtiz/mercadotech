@@ -28,6 +28,9 @@ function CategoriaPageContent() {
       setFilter("max", patch.maxPrice !== undefined ? String(patch.maxPrice) : undefined);
     }
     if (patch.sort !== undefined) setFilter("sort", patch.sort);
+    if (patch.hideOutOfStock !== undefined) {
+      setFilter("sinStock", patch.hideOutOfStock ? "0" : undefined);
+    }
   }
 
   return (

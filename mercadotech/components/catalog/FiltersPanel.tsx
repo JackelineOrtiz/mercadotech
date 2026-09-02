@@ -26,6 +26,7 @@ export interface FiltersValue {
   minPrice?: number;
   maxPrice?: number;
   sort: SortOption;
+  hideOutOfStock: boolean;
 }
 
 export interface FiltersPanelProps {
@@ -91,6 +92,22 @@ function FiltersBody({ value, onChange }: FiltersPanelProps) {
           </label>
         ))}
       </fieldset>
+
+      {/* Hallazgo real (Fase 7.5): productos sin stock aparecían
+          mezclados con los disponibles ("Sin unidades" al lado de
+          comprables) sin forma de ocultarlos. Filtro explícito en vez de
+          ocultarlos por defecto — cambiar el comportamiento por defecto
+          del catálogo es una decisión más grande que esta. */}
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          data-testid="filter-hide-out-of-stock"
+          checked={value.hideOutOfStock}
+          onChange={(e) => onChange({ hideOutOfStock: e.target.checked })}
+          className="size-4 rounded border-input accent-primary"
+        />
+        Ocultar sin stock
+      </label>
 
       <div className="flex flex-col gap-2">
         <Label>Precio ($)</Label>

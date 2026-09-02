@@ -36,6 +36,9 @@ function BuscarPageContent() {
       exact.setFilter("max", patch.maxPrice !== undefined ? String(patch.maxPrice) : undefined);
     }
     if (patch.sort !== undefined) exact.setFilter("sort", patch.sort);
+    if (patch.hideOutOfStock !== undefined) {
+      exact.setFilter("sinStock", patch.hideOutOfStock ? "0" : undefined);
+    }
   }
 
   return (

@@ -9,6 +9,7 @@ import {
   getMyOrderDetail,
   updateOrderStatus,
   getSellerPublicProfile,
+  listMyPendingQuestions,
 } from "@/services/seller.service";
 import { mockSupabase } from "@/services/test-utils/supabase-mock";
 
@@ -235,6 +236,99 @@ describe("seller.service.updateOrderStatus", () => {
     const supabase = mockSupabase({ orders: {} });
     await updateOrderStatus("o1", "enviado", supabase);
     expect(supabase.updates("orders")).toContainEqual({ status: "enviado" });
+  });
+});
+
+// Fase 7.5: antes solo se podía responder entrando a la página pública de
+// cada producto — sin ningún lugar en el panel que juntara las
+// pendientes. questions_select_all es pública (using (true)), así que no
+// hay nada de RLS que probar acá, solo el cruce con "mis productos" +
+// answer is null.
+describe("seller.service.listMyPendingQuestions", () => {
+  it("sin productos propios: devuelve [] sin consultar questions", async () => {
+    const supabase = mockSupabase({ products: { select: [] } });
+    const questions = await listMyPendingQuestions("s1", supabase);
+    expect(questions).toEqual([]);
+    expect(supabase.calls.some((c) => c.table === "questions")).toBe(false);
+  });
+
+  it("resuelve productTitle por product_id y solo trae preguntas sin responder", async () => {
+    const supabase = mockSupabase({
+      products: {
+        select: [
+          { id: "p1", title: "Laptop" },
+          { id: "p2", title: "Mouse" },
+        ],
+      },
+      questions: {
+        select: [
+          {
+            id: "q1",
+            product_id: "p1",
+            user_id: "u1",
+            question: "¿Trae cargador?",
+            answer: null,
+            answered_at: null,
+            created_at: "2026-01-02",
+          },
+          {
+            id: "q2",
+            product_id: "p2",
+            user_id: "u2",
+            question: "¿Es inalámbrico?",
+            answer: null,
+            answered_at: null,
+            created_at: "2026-01-01",
+          },
+        ],
+      },
+    });
+
+    const questions = await listMyPendingQuestions("s1", supabase);
+
+    expect(questions).toEqual([
+      {
+        id: "q1",
+        product_id: "p1",
+        user_id: "u1",
+        question: "¿Trae cargador?",
+        answer: null,
+        answered_at: null,
+        created_at: "2026-01-02",
+        productTitle: "Laptop",
+      },
+      {
+        id: "q2",
+        product_id: "p2",
+        user_id: "u2",
+        question: "¿Es inalámbrico?",
+        answer: null,
+        answered_at: null,
+        created_at: "2026-01-01",
+        productTitle: "Mouse",
+      },
+    ]);
+    const call = supabase.calls.find((c) => c.table === "questions" && c.op === "select");
+    expect(call?.chain).toContainEqual({ method: "is", args: ["answer", null] });
+  });
+
+  it("propaga el error de leer los productos propios tal cual", async () => {
+    const supabase = mockSupabase({
+      products: { error: { message: "permission denied for table products" } },
+    });
+    await expect(listMyPendingQuestions("s1", supabase)).rejects.toMatchObject({
+      message: "permission denied for table products",
+    });
+  });
+
+  it("propaga el error de leer las preguntas tal cual", async () => {
+    const supabase = mockSupabase({
+      products: { select: [{ id: "p1", title: "Laptop" }] },
+      questions: { error: { message: "permission denied for table questions" } },
+    });
+    await expect(listMyPendingQuestions("s1", supabase)).rejects.toMatchObject({
+      message: "permission denied for table questions",
+    });
   });
 });
 
